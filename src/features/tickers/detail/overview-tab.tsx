@@ -1,0 +1,189 @@
+import {
+  ArrowRight,
+  ExternalLink,
+  Flame,
+  ShieldAlert,
+  Sparkles,
+} from "lucide-react";
+
+import { StatusPill } from "@/components/ui/status-pill";
+
+import {
+  changeLabels,
+  confidenceLabel,
+  formatKstDate,
+  stanceLabels,
+} from "../format";
+import type { ResearchItem, TickerDetail } from "../types";
+import { MentionChart } from "./mention-chart";
+
+function SourceLink({ href, label = "X 원문" }: { href: string; label?: string }) {
+  return (
+    <a
+      className="source-link"
+      href={href}
+      rel="noopener noreferrer"
+      target="_blank"
+    >
+      {label}
+      <ExternalLink aria-hidden="true" size={13} />
+    </a>
+  );
+}
+
+function ResearchList({
+  items,
+  empty,
+}: {
+  items: ResearchItem[];
+  empty: string;
+}) {
+  if (!items.length) return <p className="section-empty">{empty}</p>;
+
+  return (
+    <ul className="research-list">
+      {items.map((item) => (
+        <li key={item.id}>
+          <p>{item.text}</p>
+          <div className="item-meta">
+            <time dateTime={item.date}>{formatKstDate(item.date, false)}</time>
+            <SourceLink href={item.sourceUrl} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
+  const directional = ticker.positiveCount + ticker.negativeCount;
+
+  return (
+    <div className="detail-overview-grid">
+      <div className="detail-overview-main">
+        <section className="detail-section sentiment-trend-section">
+          <header className="section-heading-row">
+            <div>
+              <p className="section-kicker">90 DAY SIGNAL</p>
+              <h2>성향 분포와 언급 추이</h2>
+            </div>
+            <p className="directional-sample">
+              방향성 표본 <span className="data-number">{directional}</span> / 총{" "}
+              <span className="data-number">{ticker.totalMentions}</span>
+            </p>
+          </header>
+          <div className="detail-distribution">
+            <div className="detail-distribution__numbers">
+              <span>
+                긍정 <strong className="data-number">{ticker.positiveCount}</strong>
+              </span>
+              <span>
+                부정 <strong className="data-number">{ticker.negativeCount}</strong>
+              </span>
+              <span>
+                중립/혼재{" "}
+                <strong className="data-number">
+                  {ticker.neutralCount + ticker.mixedCount}
+                </strong>
+              </span>
+            </div>
+            <p>방향성 언급 중 긍정 비율 65% 이상이면 긍정 우세로 분류합니다.</p>
+          </div>
+          <MentionChart data={ticker.trend} />
+          <div className="chart-legend" aria-hidden="true">
+            <span><i className="legend-dot legend-dot--positive" />긍정</span>
+            <span><i className="legend-dot legend-dot--negative" />부정</span>
+            <span><i className="legend-dot legend-dot--neutral" />그 외</span>
+          </div>
+        </section>
+
+        <section className="detail-section claims-section">
+          <header className="section-heading-row">
+            <div>
+              <p className="section-kicker">RECENT CLAIMS</p>
+              <h2>최근 주요 주장</h2>
+            </div>
+            <a className="section-more" href={`?tab=opinions`}>
+              전체 의견
+              <ArrowRight aria-hidden="true" size={14} />
+            </a>
+          </header>
+          <ol className="claim-list">
+            {ticker.claims.map((claim) => (
+              <li key={claim.id}>
+                <div className="claim-meta">
+                  <time dateTime={claim.date}>{formatKstDate(claim.date, false)}</time>
+                  <StatusPill
+                    tone={
+                      claim.stance === "bullish"
+                        ? "positive"
+                        : claim.stance === "bearish"
+                          ? "negative"
+                          : claim.stance === "mixed"
+                            ? "mixed"
+                            : "neutral"
+                    }
+                  >
+                    {stanceLabels[claim.stance]}
+                  </StatusPill>
+                  {claim.changeType ? (
+                    <span>{changeLabels[claim.changeType]}</span>
+                  ) : null}
+                </div>
+                <p>{claim.text}</p>
+                <div className="item-meta">
+                  {claim.repeatCount ? <span>반복 {claim.repeatCount}회</span> : null}
+                  <SourceLink href={claim.sourceUrl} label="근거 원문" />
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+
+      <aside className="detail-overview-rail">
+        <section className="rail-section recent-change-section">
+          <header>
+            <Flame aria-hidden="true" size={15} />
+            <h2>최근 변화</h2>
+          </header>
+          <div className="rail-section__meta">
+            <StatusPill tone="accent">
+              {ticker.changeType ? changeLabels[ticker.changeType] : "변화 없음"}
+            </StatusPill>
+            <span>확신 {confidenceLabel(ticker.recentChange.confidence)}</span>
+          </div>
+          <p>{ticker.recentChange.summary}</p>
+          <div className="source-pair">
+            <SourceLink href={ticker.recentChange.currentSourceUrl} label="현재 원문" />
+            {ticker.recentChange.previousSourceUrl ? (
+              <SourceLink href={ticker.recentChange.previousSourceUrl} label="이전 원문" />
+            ) : null}
+          </div>
+        </section>
+
+        <section className="rail-section">
+          <header>
+            <ShieldAlert aria-hidden="true" size={15} />
+            <h2>최근 리스크</h2>
+          </header>
+          <ResearchList
+            empty="최근 30일 동안 추출된 리스크가 없습니다."
+            items={ticker.risks}
+          />
+        </section>
+
+        <section className="rail-section">
+          <header>
+            <Sparkles aria-hidden="true" size={15} />
+            <h2>최근 Catalyst</h2>
+          </header>
+          <ResearchList
+            empty="최근 30일 동안 추출된 Catalyst가 없습니다."
+            items={ticker.catalysts}
+          />
+        </section>
+      </aside>
+    </div>
+  );
+}
