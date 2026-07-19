@@ -43,7 +43,18 @@ export function AnalystPresence({
   ticker,
   variant,
 }: AnalystPresenceProps) {
-  const [open, setOpen] = useState(false);
+  const hasAnalysts = analysts.length > 0;
+  const [popoverState, setPopoverState] = useState({
+    hasAnalysts,
+    open: false,
+  });
+  if (popoverState.hasAnalysts !== hasAnalysts) {
+    setPopoverState({ hasAnalysts, open: false });
+  }
+  const open =
+    hasAnalysts &&
+    popoverState.hasAnalysts === hasAnalysts &&
+    popoverState.open;
   const [panelStyle, setPanelStyle] = useState<CSSProperties>({
     left: VIEWPORT_MARGIN,
     top: VIEWPORT_MARGIN,
@@ -128,7 +139,10 @@ export function AnalystPresence({
   );
 
   const closeAndRestoreFocus = useCallback(() => {
-    setOpen(false);
+    setPopoverState((currentState) => ({
+      ...currentState,
+      open: false,
+    }));
     triggerRef.current?.focus();
   }, []);
 
@@ -148,7 +162,10 @@ export function AnalystPresence({
         !panelRef.current?.contains(target) &&
         !triggerRef.current?.contains(target)
       ) {
-        setOpen(false);
+        setPopoverState((currentState) => ({
+          ...currentState,
+          open: false,
+        }));
       }
     };
     const handleViewportChange = () => positionPanel();
@@ -196,7 +213,12 @@ export function AnalystPresence({
         aria-haspopup="dialog"
         aria-label={`${ticker} 언급 분석가 ${model.all.length}명 보기`}
         className="analyst-presence__trigger"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() =>
+          setPopoverState((currentState) => ({
+            ...currentState,
+            open: !currentState.open,
+          }))
+        }
         onPointerDown={handleTriggerPointerDown}
         ref={triggerRef}
         type="button"

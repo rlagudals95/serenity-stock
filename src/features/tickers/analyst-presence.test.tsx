@@ -366,6 +366,121 @@ describe("AnalystPresence", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("resets and cleans the open lifecycle when analyst data clears", () => {
+    const innerWidthDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "innerWidth",
+    );
+    const innerHeightDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "innerHeight",
+    );
+    Object.defineProperties(window, {
+      innerHeight: { configurable: true, value: 700 },
+      innerWidth: { configurable: true, value: 1000 },
+    });
+    let panelHeight = 100;
+    const geometry = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute("role") === "dialog") {
+          return new DOMRect(0, 0, 380, panelHeight);
+        }
+        return new DOMRect(700, 500, 200, 30);
+      });
+    const observers: Array<{
+      callback: ResizeObserverCallback;
+      disconnect: ReturnType<typeof vi.fn>;
+      observe: ReturnType<typeof vi.fn>;
+    }> = [];
+    class TestResizeObserver {
+      callback: ResizeObserverCallback;
+      disconnect = vi.fn();
+      observe = vi.fn();
+      unobserve = vi.fn();
+
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+        observers.push(this);
+      }
+    }
+    vi.stubGlobal("ResizeObserver", TestResizeObserver);
+    const removeDocumentListener = vi.spyOn(
+      document,
+      "removeEventListener",
+    );
+    const removeWindowListener = vi.spyOn(window, "removeEventListener");
+    let unmount: (() => void) | undefined;
+
+    try {
+      const rendered = render(
+        <AnalystPresence analysts={analysts} ticker="COHR" variant="desktop" />,
+      );
+      unmount = rendered.unmount;
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "COHR 언급 분석가 4명 보기",
+        }),
+      );
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(observers).toHaveLength(1);
+
+      rendered.rerender(
+        <AnalystPresence analysts={[]} ticker="COHR" variant="desktop" />,
+      );
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.getByText("언급 정보 없음")).toBeInTheDocument();
+      expect(observers[0].disconnect).toHaveBeenCalledTimes(1);
+      expect(removeDocumentListener).toHaveBeenCalledWith(
+        "pointerdown",
+        expect.any(Function),
+      );
+      expect(removeWindowListener).toHaveBeenCalledWith(
+        "resize",
+        expect.any(Function),
+      );
+
+      rendered.rerender(
+        <AnalystPresence analysts={analysts} ticker="COHR" variant="desktop" />,
+      );
+
+      const restoredTrigger = screen.getByRole("button", {
+        name: "COHR 언급 분석가 4명 보기",
+      });
+      expect(restoredTrigger).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+      fireEvent.click(restoredTrigger);
+
+      const reopenedDialog = screen.getByRole("dialog", {
+        name: "COHR 언급 분석가",
+      });
+      expect(observers).toHaveLength(2);
+      expect(observers[1].observe).toHaveBeenCalledWith(reopenedDialog);
+      expect(reopenedDialog).toHaveStyle({ top: "538px" });
+
+      act(() => {
+        panelHeight = 260;
+        observers[1].callback([], {} as ResizeObserver);
+      });
+      expect(reopenedDialog).toHaveStyle({ top: "232px" });
+    } finally {
+      unmount?.();
+      removeDocumentListener.mockRestore();
+      removeWindowListener.mockRestore();
+      geometry.mockRestore();
+      vi.unstubAllGlobals();
+      if (innerWidthDescriptor) {
+        Object.defineProperty(window, "innerWidth", innerWidthDescriptor);
+      }
+      if (innerHeightDescriptor) {
+        Object.defineProperty(window, "innerHeight", innerHeightDescriptor);
+      }
+    }
+  });
+
   it("renders a non-interactive empty state", () => {
     render(<AnalystPresence analysts={[]} ticker="COHR" variant="desktop" />);
 
