@@ -1,8 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
-import { getPipelineConfig } from "@/lib/pipeline/config";
-import { syncSerenity } from "@/lib/pipeline/sync";
+import {
+  getHostedPipelineConfig,
+  runHostedSync,
+} from "@/lib/pipeline/edge-functions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await syncSerenity(getPipelineConfig());
+    const result = await runHostedSync(getHostedPipelineConfig());
     revalidatePath("/tickers", "layout");
     return NextResponse.json(result);
   } catch (error) {

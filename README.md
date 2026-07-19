@@ -31,10 +31,13 @@ cp .env.example .env.local
 ```text
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_REPLACE_ME
+SERENITY_CRON_SECRET=GENERATE_A_LONG_RANDOM_SECRET
 X_API_BEARER_TOKEN=REPLACE_ME
 SERENITY_X_USERNAME=aleabitoreddit
+SERENITY_X_USER_ID=REPLACE_ME
 DEEPSEEK_API_KEY=REPLACE_ME
 DEEPSEEK_MODEL=deepseek-v4-flash
+SERENITY_INGEST_MAX_POSTS=1000
 SERENITY_SYNC_MAX_POSTS=100
 SERENITY_ANALYSIS_BATCH_SIZE=25
 SERENITY_BACKFILL_DAYS=60
@@ -46,9 +49,11 @@ keys**에서 생성합니다. 이 값은 Next.js 서버에서만 읽으며 브�
 포함되지 않습니다. `.env.local`을 커밋하거나 키를 `NEXT_PUBLIC_` 변수에
 넣지 마세요.
 
-설정 후 앱 상단의 **동기화** 버튼을 누르면 다음 작업을 한 번 실행합니다.
+Steady-state 수집과 분석은 Supabase Edge Functions에서 실행됩니다. 앱 상단의
+**동기화** 버튼은 hosted `ingest-x`와 `analyze-posts` 함수를 순서대로 한 번
+호출합니다.
 
-1. 최초 실행은 최근 게시글을 백필하고 이후에는 `since_id`로 신규 글만 수집
+1. 최초 실행은 기존 최신 글에서 cursor를 초기화하고 이후에는 `since_id`로 신규 글만 수집
 2. X pagination을 따라가며 `x_post_id` 기준으로 중복 없이 저장
 3. 누락된 `analysis_jobs` 생성 및 claim
 4. DeepSeek `deepseek-v4-flash` JSON 모드로 글-종목별 분석
@@ -56,9 +61,12 @@ keys**에서 생성합니다. 이 값은 Next.js 서버에서만 읽으며 브�
 6. 종목 overview와 상세 화면 갱신
 
 DeepSeek 출력은 Zod schema와 DB constraint를 모두 통과해야 저장됩니다.
-원문에 실제로 존재하지 않는 evidence는 한 번 교정 재시도한 뒤 실패 job으로
-남깁니다. 기본 수집 한도는 100개이며 10~500 사이에서 조정할 수 있습니다.
-LLM 분석은 기본 25개씩 claim하고 3개 동시 처리합니다.
+원문에 실제로 존재하지 않는 evidence는 제거하고 해당 분석을
+`needs_review`로 표시합니다. JSON 구조 자체가 잘못된 출력은 한 번 교정
+재시도한 뒤 실패 job으로 남깁니다. 로컬 기본 수집 한도는 100개이며
+10~500 사이에서 조정할 수 있습니다.
+예약 분석은 최대 10개씩 claim하고 3개 동시 처리합니다. 로컬 백필 분석은
+기존 설정값인 25개 배치를 사용합니다.
 
 ### Historical backfill
 
@@ -96,6 +104,23 @@ pnpm supabase link --project-ref YOUR_PROJECT_REF
 pnpm supabase db push --dry-run
 pnpm supabase db push
 ```
+
+Hosted 함수와 Cron은 아래 순서로 반영합니다. Docker는 필요하지 않습니다.
+
+```bash
+pnpm supabase secrets set \
+  X_API_BEARER_TOKEN=... \
+  DEEPSEEK_API_KEY=... \
+  SERENITY_X_USER_ID=... \
+  SERENITY_CRON_SECRET=...
+pnpm supabase functions deploy ingest-x --use-api
+pnpm supabase functions deploy analyze-posts --use-api
+```
+
+그 다음 `supabase/sql/configure_scheduled_pipeline.sql`의 Vault 값 두 개를
+설정해 SQL Editor에서 실행합니다. 수집은 15분마다, 분석은 5분마다
+2분 offset으로 실행됩니다. 중단할 때는
+`supabase/sql/remove_scheduled_pipeline.sql`을 실행합니다.
 
 `supabase/seed.sql`은 fixture와 대응하는 로컬 검증용 가짜 데이터이므로 실제
 프로젝트에는 기본적으로 넣지 않습니다.

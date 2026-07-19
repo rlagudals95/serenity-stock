@@ -43,3 +43,11 @@ enable_signup = false
 double_confirm_changes = true
 enable_confirmations = false
 secure_password_change = true
+
+[functions.ingest-x]
+verify_jwt = false
+import_map = "./functions/deno.json"
+
+[functions.analyze-posts]
+verify_jwt = false
+import_map = "./functions/deno.json"

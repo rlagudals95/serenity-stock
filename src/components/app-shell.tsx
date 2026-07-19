@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="wordmark__full">Serenity Intelligence</span>
             <span className="wordmark__short">Serenity</span>
           </Link>
-          <div className="app-bar__actions">
+          {/* <div className="app-bar__actions">
             <span
               className={`freshness ${isSupabase ? "freshness--ok" : ""}`}
               title={
@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               configured={pipeline.configured}
               missing={pipeline.configured ? [] : pipeline.missing}
             />
-          </div>
+          </div> */}
         </div>
       </header>
       <main className="page-frame">{children}</main>
