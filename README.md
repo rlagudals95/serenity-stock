@@ -1,8 +1,9 @@
 # Public Investor Intelligence
 
-Serenity와 Shay Boloor의 공개 X 게시글에서 종목별 언급, 누적 관점,
-최근 의견과 변화 근거를 확인하고 두 분석가의 관점을 비교하는 개인용 투자
-리서치 도구입니다.
+성장주 분석가들의 공개 X 게시글에서 종목별 언급, 누적 관점,
+최근 의견과 변화 근거를 확인하고 분석가별 관점을 비교하는 개인용 투자
+리서치 도구입니다. 현재 Serenity, Shay Boloor, Beth Kindig,
+App Economy Insights, Brian Stoffel을 추적합니다.
 
 ## Stack
 
@@ -23,7 +24,7 @@ pnpm dev
 브라우저에서 `http://localhost:3000/tickers`를 엽니다.
 
 필수 환경 변수가 없으면 내장 fixture를 사용합니다. 아래 변수를 설정하면
-Hosted Supabase에 Serenity와 Shay의 X 게시글을 수집하고 DeepSeek로 분석할 수
+Hosted Supabase에 활성 분석가의 X 게시글을 수집하고 DeepSeek로 분석할 수
 있습니다.
 
 ```bash
@@ -61,22 +62,27 @@ keys**에서 생성합니다. 이 값은 Next.js 서버에서만 읽으며 브�
 로컬에서는 `RETTIWT_API_KEY` 대신 `X_AUTH_TOKEN`, `X_CT0`, `X_TWID` 세 값을
 설정해도 실행 시 메모리에서 같은 키를 생성합니다.
 
-Telegram 값을 설정하면 신규 게시물이 저장된 성공 실행과 모든 수집 실패를
-봇으로 알립니다. 신규 게시물이 없는 정상 실행은 메시지를 보내지 않으며,
-Telegram 전송 실패가 원문 수집을 실패시키지는 않습니다.
+Telegram 값을 설정하면 신규 게시물이 저장된 성공 실행, 모든 수집 실패,
+실패 후 첫 정상 복구를 봇으로 알립니다. 신규 게시물이 없는 일반 정상 실행은
+메시지를 보내지 않으며, Telegram 전송 실패가 원문 수집을 실패시키지는
+않습니다.
 
 Steady-state 수집과 분석은 Supabase Edge Functions에서 실행됩니다. 앱 상단의
 **동기화** 버튼은 hosted `ingest-x`와 `analyze-posts` 함수를 순서대로 한 번
 호출합니다.
 
 1. `analyst_profiles`의 활성 분석가를 읽고 Rettiwt로 X user ID를 자동 조회
-2. 최초 조회한 user ID는 분석가별 cursor에 저장하고 이후에는 `since_id`로 신규 글만 수집
+2. 최초 조회한 user ID는 분석가별 cursor에 저장하고, 해당 ID가 실제 작성한
+   게시물만 보관한 뒤 `since_id`로 신규 글만 수집
 3. Rettiwt timeline pagination을 따라가며 `x_post_id` 기준으로 중복 없이 저장
 4. 누락된 `analysis_jobs` 생성 및 claim
 5. DeepSeek `deepseek-v4-flash` JSON 모드로 글-종목별 분석
 6. ticker, stance, claim, 근거, 리스크, catalyst, confidence 저장
 7. 분석가별 최초 언급, 최근 관점, 관점 변화와 원문 링크 집계
-8. 종목 overview와 Serenity ↔ Shay 비교 화면 갱신
+8. 종목 overview와 분석가별 비교 화면 갱신
+
+계정별 `analysis_post_types`로 분석 대상을 제한할 수 있습니다. App Economy
+Insights와 Brian Stoffel은 게시물은 모두 보관하지만 `original`만 분석합니다.
 
 DeepSeek 출력은 Zod schema와 DB constraint를 모두 통과해야 저장됩니다.
 원문에 실제로 존재하지 않는 evidence는 제거하고 해당 분석을

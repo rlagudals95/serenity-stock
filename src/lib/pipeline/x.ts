@@ -63,7 +63,7 @@ export function createRettiwtClient(apiKey: string): RettiwtClient {
   return new Rettiwt({
     apiKey,
     delay: 250,
-    maxRetries: 2,
+    maxRetries: 5,
     timeout: 20_000,
   }) as unknown as RettiwtClient;
 }
@@ -173,6 +173,7 @@ export async function fetchRettiwtPostPage(
   const count = Math.min(20, Math.max(1, pageSize));
   const page = await client.user.replies(userId, count, paginationToken);
   const mapped = page.list
+    .filter((post) => post.tweetBy.id === userId)
     .map((post) => mapRettiwtTweet(post, username))
     .sort((left, right) =>
       compareSnowflakeIds(right.x_post_id, left.x_post_id)

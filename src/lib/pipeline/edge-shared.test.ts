@@ -105,6 +105,46 @@ describe("Edge Function shared helpers", () => {
     );
   });
 
+  it("excludes contextual posts that do not belong to the tracked user", async () => {
+    const client: RettiwtClient = {
+      user: {
+        details: vi.fn(),
+        replies: vi.fn().mockResolvedValue({
+          list: [
+            {
+              id: "101",
+              fullText: "tracked post",
+              createdAt: "2026-07-19T00:00:00.000Z",
+              conversationId: "101",
+              tweetBy: { id: "42", userName: "aleabitoreddit" },
+            },
+            {
+              id: "102",
+              fullText: "context from another user",
+              createdAt: "2026-07-19T00:01:00.000Z",
+              conversationId: "101",
+              tweetBy: { id: "99", userName: "contextAuthor" },
+            },
+          ],
+        }),
+      },
+    };
+
+    await expect(
+      fetchRettiwtPostPage(client, {
+        userId: "42",
+        username: "aleabitoreddit",
+      }),
+    ).resolves.toMatchObject({
+      posts: [
+        expect.objectContaining({
+          x_post_id: "101",
+          author_id: "42",
+        }),
+      ],
+    });
+  });
+
   it("passes through Rettiwt's string pagination cursor", async () => {
     const client: RettiwtClient = {
       user: {

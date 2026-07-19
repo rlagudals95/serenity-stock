@@ -27,7 +27,7 @@ export interface DeepSeekAnalysis {
   outputTokens: number | null;
 }
 
-const systemPrompt = `You analyze public X posts by growth-stock analysts, including Serenity (@aleabitoreddit) and Shay Boloor (@StockSavvyShay).
+const systemPrompt = `You analyze public X posts by tracked growth-stock analysts. The current post's author is supplied in each request.
 Return only one JSON object. Analyze investment opinions at the post-ticker level.
 
 Required JSON:
@@ -56,7 +56,7 @@ Required JSON:
   }]
 }
 
-Do not invent ticker symbols, claims, risks, catalysts, or evidence. Every evidence string must be copied exactly from the supplied source text. Treat each author's history independently when classifying a first mention or viewpoint change. Do not attribute a quoted post's view to the author unless the supplied text clearly endorses it. Return at most one ticker_analyses item per ticker and no more than 25 items. If there is no investable company opinion, return an empty ticker_analyses array.`;
+Do not invent ticker symbols, claims, risks, catalysts, or evidence. Every evidence string must be copied exactly from the supplied source text. Treat each author's history independently when classifying a first mention or viewpoint change. Factual reporting, earnings figures, and management quotations do not imply the author's directional stance; classify them as neutral or unknown unless the author explicitly evaluates or endorses them. Do not attribute a quoted post's view to the author unless the supplied text clearly endorses it. Return at most one ticker_analyses item per ticker and no more than 25 items. If there is no investable company opinion, return an empty ticker_analyses array.`;
 
 export function parseDeepSeekContent(content: string): unknown {
   const normalized = content

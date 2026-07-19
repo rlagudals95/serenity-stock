@@ -22,6 +22,20 @@ describe("Telegram ingestion notifications", () => {
     );
   });
 
+  it("labels the first successful run after a failure as recovered", () => {
+    expect(
+      formatIngestionSuccess({
+        fetched: 0,
+        inserted: 0,
+        duplicates: 0,
+        jobsCreated: 0,
+        pages: 2,
+        occurredAt: "2026-07-19T12:04:48.000Z",
+        recovered: true,
+      }),
+    ).toContain("🟢 X 수집 복구");
+  });
+
   it("formats a failure without exposing raw payloads or credentials", () => {
     const message = formatIngestionFailure({
       sourceKey: "x:stocksavvyshay",

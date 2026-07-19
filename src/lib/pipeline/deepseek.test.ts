@@ -75,6 +75,9 @@ describe("parseDeepSeekContent", () => {
     expect(JSON.parse(request.messages[1].content)).toMatchObject({
       author: "@StockSavvyShay",
     });
+    expect(request.messages[0].content).toContain(
+      "Factual reporting, earnings figures, and management quotations do not imply the author's directional stance",
+    );
     expect(timeout).toHaveBeenCalledWith(120_000);
   });
 });

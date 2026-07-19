@@ -20,7 +20,7 @@ const fragment = Fragment_Mono({
 
 const title = "Public Investor Intelligence";
 const description =
-  "Serenity와 Shay Boloor의 공개 투자 관점과 원문을 비교하는 리서치 도구";
+  "성장주 분석가들의 공개 투자 관점과 원문을 비교하는 리서치 도구";
 
 export async function generateMetadata(): Promise<Metadata> {
   const incoming = await headers();

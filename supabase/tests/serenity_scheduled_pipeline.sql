@@ -1,5 +1,7 @@
 begin;
 
+select plan(2);
+
 do $$
 declare
   first_owner uuid := gen_random_uuid();
@@ -111,5 +113,157 @@ begin
   end if;
 end;
 $$;
+
+select pass('pipeline leases and dead-letter transitions behave as expected');
+
+do $$
+declare
+  config_id bigint;
+  original_post_id bigint;
+  reply_post_id bigint;
+  default_reply_post_id bigint;
+begin
+  update public.analysis_configs
+  set is_active = false
+  where is_active = true;
+
+  insert into public.analysis_configs (
+    provider,
+    model,
+    prompt_version,
+    schema_version,
+    is_active
+  )
+  values (
+    'test-policy-provider',
+    'test-policy-model',
+    'test-policy-prompt',
+    'test-policy-schema',
+    true
+  )
+  returning id into config_id;
+
+  insert into public.analyst_profiles (
+    analyst_key,
+    display_name,
+    x_username,
+    description_ko,
+    analysis_post_types
+  )
+  values
+    (
+      'test_original_only',
+      'Test Original Only',
+      'test_original_only',
+      '원문 전용 테스트 계정',
+      array['original']
+    ),
+    (
+      'test_default_policy',
+      'Test Default Policy',
+      'test_default_policy',
+      '기본 정책 테스트 계정',
+      array['original', 'reply', 'quote']
+    );
+
+  insert into public.posts (
+    x_post_id,
+    author_id,
+    author_username,
+    text,
+    url,
+    post_type,
+    posted_at,
+    raw
+  )
+  values (
+    'test-original-only-original',
+    'test-original-only-user',
+    'test_original_only',
+    '$TEST original',
+    'https://x.com/test_original_only/status/original',
+    'original',
+    '1900-01-01T00:00:00Z',
+    '{}'::jsonb
+  )
+  returning id into original_post_id;
+
+  insert into public.posts (
+    x_post_id,
+    author_id,
+    author_username,
+    text,
+    url,
+    post_type,
+    posted_at,
+    raw
+  )
+  values (
+    'test-original-only-reply',
+    'test-original-only-user',
+    'test_original_only',
+    '$TEST reply',
+    'https://x.com/test_original_only/status/reply',
+    'reply',
+    '1900-01-01T00:00:01Z',
+    '{}'::jsonb
+  )
+  returning id into reply_post_id;
+
+  insert into public.posts (
+    x_post_id,
+    author_id,
+    author_username,
+    text,
+    url,
+    post_type,
+    posted_at,
+    raw
+  )
+  values (
+    'test-default-policy-reply',
+    'test-default-policy-user',
+    'test_default_policy',
+    '$TEST default reply',
+    'https://x.com/test_default_policy/status/reply',
+    'reply',
+    '1900-01-01T00:00:02Z',
+    '{}'::jsonb
+  )
+  returning id into default_reply_post_id;
+
+  perform public.enqueue_missing_analysis_jobs(1000);
+
+  if not exists (
+    select 1
+    from public.analysis_jobs
+    where post_id = original_post_id
+      and analysis_config_id = config_id
+  ) then
+    raise exception 'original-only profile should enqueue original posts';
+  end if;
+
+  if exists (
+    select 1
+    from public.analysis_jobs
+    where post_id = reply_post_id
+      and analysis_config_id = config_id
+  ) then
+    raise exception 'original-only profile should not enqueue replies';
+  end if;
+
+  if not exists (
+    select 1
+    from public.analysis_jobs
+    where post_id = default_reply_post_id
+      and analysis_config_id = config_id
+  ) then
+    raise exception 'default profile policy should enqueue replies';
+  end if;
+end;
+$$;
+
+select pass('analyst post-type policies control analysis job enqueueing');
+select * from finish();
 
 rollback;

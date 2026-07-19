@@ -130,6 +130,29 @@ describe("mapRettiwtTweet", () => {
 });
 
 describe("fetchRettiwtPostPage", () => {
+  it("excludes contextual posts written by other users", async () => {
+    const client = clientWithPages([
+      {
+        list: [
+          tweet("103"),
+          tweet("104", {
+            tweetBy: {
+              id: "999",
+              userName: "contextAuthor",
+            },
+          }),
+        ],
+      },
+    ]);
+
+    const page = await fetchRettiwtPostPage(client, {
+      userId: "456",
+      username: "aleabitoreddit",
+    });
+
+    expect(page.posts.map((post) => post.x_post_id)).toEqual(["103"]);
+  });
+
   it("sorts newest first, removes posts at the stored cursor, and stops paging", async () => {
     const client = clientWithPages([
       {

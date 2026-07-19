@@ -10,6 +10,7 @@ interface SuccessSummary {
   jobsCreated: number;
   pages: number;
   occurredAt: string;
+  recovered?: boolean;
 }
 
 interface FailureSummary {
@@ -45,7 +46,7 @@ function singleLine(value: string, maximumLength = 500) {
 
 export function formatIngestionSuccess(summary: SuccessSummary) {
   return [
-    "🟢 X 수집 완료",
+    summary.recovered ? "🟢 X 수집 복구" : "🟢 X 수집 완료",
     "",
     `신규 저장: ${summary.inserted}개`,
     `중복: ${summary.duplicates}개`,

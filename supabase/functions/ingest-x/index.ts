@@ -32,6 +32,7 @@ interface IngestionCursor {
   high_water_id: string | null;
   pagination_token: string | null;
   cycle_started_at: string | null;
+  last_error: unknown | null;
 }
 
 interface IngestionCounts extends RunCounts {
@@ -96,7 +97,7 @@ async function loadOrCreateCursor(
   const { data, error } = await client
     .from("ingestion_cursors")
     .select(
-      "source_key,user_id,since_id,high_water_id,pagination_token,cycle_started_at",
+      "source_key,user_id,since_id,high_water_id,pagination_token,cycle_started_at,last_error",
     )
     .eq("source_key", sourceKey)
     .maybeSingle();
@@ -122,6 +123,7 @@ async function loadOrCreateCursor(
     high_water_id: null,
     pagination_token: null,
     cycle_started_at: null,
+    last_error: null,
   };
   const { error: insertError } = await client
     .from("ingestion_cursors")
@@ -193,6 +195,7 @@ Deno.serve(async (request) => {
   let hasLease = false;
   let runId: string | undefined;
   let activeSourceKey: string | undefined;
+  let recoveredFromFailure = false;
   const counts: IngestionCounts = {
     fetched: 0,
     inserted: 0,
@@ -228,6 +231,7 @@ Deno.serve(async (request) => {
       })),
       max_posts: maxPosts,
       runtime: "supabase-edge",
+      author_filter: "tweet_by_user_id",
     });
     for (const source of sources) {
       const sourceKey = `x:${source.x_username.toLowerCase()}`;
@@ -238,6 +242,7 @@ Deno.serve(async (request) => {
         source.x_username,
         rettiwt,
       );
+      if (cursor.last_error !== null) recoveredFromFailure = true;
       const bootstrap =
         cursor.since_id === null &&
         cursor.high_water_id === null &&
@@ -314,12 +319,13 @@ Deno.serve(async (request) => {
     counts.jobsCreated = Number(jobsCreated ?? 0);
 
     await finishRun(client, runId, "completed", counts);
-    if (counts.inserted > 0) {
+    if (counts.inserted > 0 || recoveredFromFailure) {
       await notifyTelegram(
         telegram,
         formatIngestionSuccess({
           ...counts,
           occurredAt: new Date().toISOString(),
+          recovered: recoveredFromFailure,
         }),
       );
     }
