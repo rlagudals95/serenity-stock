@@ -45,4 +45,22 @@ export const analystProfiles: AnalystProfile[] = [
       "기업 펀더멘털과 안티프래질 원칙을 바탕으로 장기 성장주 관점과 포트폴리오 판단을 공유합니다.",
     focusAreas: ["장기 성장주", "기업 펀더멘털", "밸류에이션", "포트폴리오"],
   },
+  {
+    key: "ole_hansen",
+    name: "Ole S Hansen",
+    username: "Ole_S_Hansen",
+    followerLabel: "X 팔로워 8만+",
+    description:
+      "주요 원자재 시장을 중심으로 귀금속·에너지·농산물의 가격 흐름과 거시 환경을 분석합니다.",
+    focusAreas: ["원자재", "귀금속", "에너지", "거시경제"],
+  },
+  {
+    key: "stockmktnewz",
+    name: "Evan (StockMKTNewz)",
+    username: "StockMKTNewz",
+    followerLabel: "X 팔로워 99만+",
+    description:
+      "미국 증시와 상장 기업의 주요 뉴스, 실적, 시장 이벤트를 빠르게 정리해 공유합니다.",
+    focusAreas: ["미국 증시", "기업 뉴스", "실적", "시장 이벤트"],
+  },
 ];

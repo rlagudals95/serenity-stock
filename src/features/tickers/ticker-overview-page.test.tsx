@@ -60,7 +60,13 @@ describe("TickerOverviewPage", () => {
     expect(
       screen.getByRole("link", { name: "@Brian_Stoffel_" }),
     ).toHaveAttribute("href", "https://x.com/Brian_Stoffel_");
-    expect(screen.getByText("추적 중인 분석가 5명")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "@Ole_S_Hansen" }),
+    ).toHaveAttribute("href", "https://x.com/Ole_S_Hansen");
+    expect(
+      screen.getByRole("link", { name: "@StockMKTNewz" }),
+    ).toHaveAttribute("href", "https://x.com/StockMKTNewz");
+    expect(screen.getByText("추적 중인 분석가 7명")).toBeInTheDocument();
     expect(screen.getByText(/Shay 본인이나 관련 회사와 제휴/)).toBeInTheDocument();
     expect(screen.getByText(/감사를 받은 운용 성과가 아닙니다/)).toBeInTheDocument();
     expect(screen.getByText(/2026.*기준/)).toBeInTheDocument();
