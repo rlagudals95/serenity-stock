@@ -21,6 +21,16 @@ describe("resolveSupabaseDataConfig", () => {
     });
   });
 
+  it("forces fixture mode when the explicit fixture flag is enabled", () => {
+    expect(
+      resolveSupabaseDataConfig({
+        SERENITY_FIXTURE_MODE: " true ",
+        SUPABASE_URL: "https://serenity.supabase.co",
+        SUPABASE_SECRET_KEY: "sb_secret_test",
+      }),
+    ).toEqual({ mode: "fixture" });
+  });
+
   it("keeps fixture mode when only legacy public variables are present", () => {
     expect(
       resolveSupabaseDataConfig({

@@ -17,6 +17,10 @@ function configured(value: string | undefined) {
 export function resolveSupabaseDataConfig(
   environment: SupabaseEnvironment,
 ): SupabaseDataConfig {
+  if (environment.SERENITY_FIXTURE_MODE?.trim() === "true") {
+    return { mode: "fixture" };
+  }
+
   const url =
     configured(environment.SUPABASE_URL) ??
     configured(environment.NEXT_PUBLIC_SUPABASE_URL);

@@ -13,8 +13,12 @@ export default defineConfig({
   },
   webServer: {
     command: "pnpm dev --hostname 127.0.0.1 --port 3000",
+    env: {
+      ...process.env,
+      SERENITY_FIXTURE_MODE: "true",
+    },
     url: "http://127.0.0.1:3000/tickers",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [

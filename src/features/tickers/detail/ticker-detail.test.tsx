@@ -27,7 +27,7 @@ describe("ticker detail header", () => {
     expect(screen.getByText("긍정 의견")).toBeInTheDocument();
     expect(screen.getByText("최근 변화")).toBeInTheDocument();
     expect(screen.getByText("새 주장")).toBeInTheDocument();
-    expect(screen.getByText("두 분석가 모두 언급")).toBeInTheDocument();
+    expect(screen.getByText("5명 분석가가 언급")).toBeInTheDocument();
     expect(screen.getByText("47")).toBeInTheDocument();
     expect(screen.getByText("38")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();

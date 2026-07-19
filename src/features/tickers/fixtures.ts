@@ -270,7 +270,7 @@ function fixtureAnalysts(
     serenityMentions - serenityPositive - serenityNegative,
   );
 
-  return [
+  const baseAnalysts: AnalystSnapshot[] = [
     {
       key: "shay_boloor",
       name: "Shay Boloor",
@@ -315,6 +315,85 @@ function fixtureAnalysts(
       firstMentionedAt: "2026-04-01T03:00:00.000Z",
       lastMentionedAt: "2026-07-16T03:20:00.000Z",
       latestSourceUrl: sourceUrl(row.ticker, 2, "aleabitoreddit"),
+    },
+  ];
+
+  if (row.ticker !== "COHR") {
+    return baseAnalysts;
+  }
+
+  return [
+    {
+      ...baseAnalysts[0],
+      totalMentions: 15,
+      positiveCount: 13,
+      negativeCount: 1,
+      neutralCount: 0,
+      mixedCount: 1,
+      unknownCount: 0,
+    },
+    {
+      ...baseAnalysts[1],
+      totalMentions: 18,
+      positiveCount: 16,
+      negativeCount: 0,
+      neutralCount: 0,
+      mixedCount: 1,
+      unknownCount: 1,
+    },
+    {
+      key: "growth_desk",
+      name: "Growth Desk",
+      username: "growth_desk_demo",
+      totalMentions: 6,
+      positiveCount: 5,
+      negativeCount: 0,
+      neutralCount: 0,
+      mixedCount: 1,
+      unknownCount: 0,
+      cumulativeSentiment: "positive",
+      latestStance: "bullish",
+      latestClaim: "AI 광통신 증설이 장기 성장 구간을 연다는 주장",
+      latestChangeType: "new_claim",
+      firstMentionedAt: "2026-06-03T03:00:00.000Z",
+      lastMentionedAt: "2026-07-16T03:00:00Z",
+      latestSourceUrl: sourceUrl("COHR", 3, "growth_desk_demo"),
+    },
+    {
+      key: "bear_case",
+      name: "Bear Case",
+      username: "bear_case_demo",
+      totalMentions: 5,
+      positiveCount: 2,
+      negativeCount: 2,
+      neutralCount: 1,
+      mixedCount: 0,
+      unknownCount: 0,
+      cumulativeSentiment: "mixed",
+      latestStance: "bearish",
+      latestClaim: "증설 속도에 비해 주문 전환이 늦어질 위험이 있다는 주장",
+      latestChangeType: "new_risk",
+      firstMentionedAt: "2026-06-10T03:00:00.000Z",
+      lastMentionedAt: "2026-07-15T03:00:00Z",
+      latestSourceUrl: sourceUrl("COHR", 4, "bear_case_demo"),
+    },
+    {
+      key: "signal_lab",
+      name: "Signal Lab",
+      username: "signal_lab_demo",
+      totalMentions: 3,
+      positiveCount: 2,
+      negativeCount: 0,
+      neutralCount: 1,
+      mixedCount: 0,
+      unknownCount: 0,
+      cumulativeSentiment: "insufficient",
+      latestStance: "neutral",
+      latestClaim: "수요 강도와 생산 수율을 다음 실적에서 확인해야 한다는 주장",
+      latestChangeType: "unclear",
+      firstMentionedAt: "2026-06-24T03:00:00.000Z",
+      lastMentionedAt: "2026-07-14T03:00:00Z",
+      latestSourceUrl: sourceUrl("COHR", 5, "signal_lab_demo"),
     },
   ];
 }
