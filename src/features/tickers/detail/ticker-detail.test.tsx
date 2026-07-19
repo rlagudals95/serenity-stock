@@ -27,6 +27,7 @@ describe("ticker detail header", () => {
     expect(screen.getByText("긍정 의견")).toBeInTheDocument();
     expect(screen.getByText("최근 변화")).toBeInTheDocument();
     expect(screen.getByText("새 주장")).toBeInTheDocument();
+    expect(screen.getByText("두 분석가 모두 언급")).toBeInTheDocument();
     expect(screen.getByText("47")).toBeInTheDocument();
     expect(screen.getByText("38")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
@@ -42,6 +43,7 @@ describe("opinion detail", () => {
     render(<OpinionItem opinion={opinion!} />);
 
     const article = screen.getByRole("article");
+    expect(screen.getByText("Shay Boloor")).toBeInTheDocument();
     expect(article).toHaveAttribute("data-expanded", "false");
 
     fireEvent.click(screen.getByRole("heading", { name: opinion!.claim }));

@@ -56,7 +56,15 @@ export function OpinionItem({ opinion }: { opinion: Opinion }) {
       tabIndex={0}
     >
       <header className="opinion-item__header">
-        <time dateTime={opinion.postedAt}>{formatKstDate(opinion.postedAt)}</time>
+        <div className="opinion-source">
+          <span
+            className={`opinion-source__badge opinion-source__badge--${opinion.analyst.key}`}
+          >
+            {opinion.analyst.name}
+          </span>
+          <span>@{opinion.analyst.username}</span>
+          <time dateTime={opinion.postedAt}>{formatKstDate(opinion.postedAt)}</time>
+        </div>
         <div className="opinion-labels">
           <StatusPill
             tone={

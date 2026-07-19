@@ -1,6 +1,8 @@
-# Serenity Investment Intelligence
+# Public Investor Intelligence
 
-Serenity의 공개 X 게시글에서 종목별 언급, 누적 관점, 최근 의견과 변화 근거를 확인하는 개인용 투자 리서치 도구입니다.
+Serenity와 Shay Boloor의 공개 X 게시글에서 종목별 언급, 누적 관점,
+최근 의견과 변화 근거를 확인하고 두 분석가의 관점을 비교하는 개인용 투자
+리서치 도구입니다.
 
 ## Stack
 
@@ -21,7 +23,7 @@ pnpm dev
 브라우저에서 `http://localhost:3000/tickers`를 엽니다.
 
 필수 환경 변수가 없으면 내장 fixture를 사용합니다. 아래 변수를 설정하면
-Hosted Supabase에 Serenity의 X 게시글을 수집하고 DeepSeek로 분석할 수
+Hosted Supabase에 Serenity와 Shay의 X 게시글을 수집하고 DeepSeek로 분석할 수
 있습니다.
 
 ```bash
@@ -33,8 +35,6 @@ SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_REPLACE_ME
 SERENITY_CRON_SECRET=GENERATE_A_LONG_RANDOM_SECRET
 X_API_BEARER_TOKEN=REPLACE_ME
-SERENITY_X_USERNAME=aleabitoreddit
-SERENITY_X_USER_ID=REPLACE_ME
 DEEPSEEK_API_KEY=REPLACE_ME
 DEEPSEEK_MODEL=deepseek-v4-flash
 SERENITY_INGEST_MAX_POSTS=1000
@@ -53,12 +53,14 @@ Steady-state 수집과 분석은 Supabase Edge Functions에서 실행됩니다. 
 **동기화** 버튼은 hosted `ingest-x`와 `analyze-posts` 함수를 순서대로 한 번
 호출합니다.
 
-1. 최초 실행은 기존 최신 글에서 cursor를 초기화하고 이후에는 `since_id`로 신규 글만 수집
-2. X pagination을 따라가며 `x_post_id` 기준으로 중복 없이 저장
-3. 누락된 `analysis_jobs` 생성 및 claim
-4. DeepSeek `deepseek-v4-flash` JSON 모드로 글-종목별 분석
-5. ticker, stance, claim, 근거, 리스크, catalyst, confidence 저장
-6. 종목 overview와 상세 화면 갱신
+1. `analyst_profiles`의 활성 분석가를 읽고 username으로 X user ID를 자동 조회
+2. 최초 조회한 user ID는 분석가별 cursor에 저장하고 이후에는 `since_id`로 신규 글만 수집
+3. X pagination을 따라가며 `x_post_id` 기준으로 중복 없이 저장
+4. 누락된 `analysis_jobs` 생성 및 claim
+5. DeepSeek `deepseek-v4-flash` JSON 모드로 글-종목별 분석
+6. ticker, stance, claim, 근거, 리스크, catalyst, confidence 저장
+7. 분석가별 최초 언급, 최근 관점, 관점 변화와 원문 링크 집계
+8. 종목 overview와 Serenity ↔ Shay 비교 화면 갱신
 
 DeepSeek 출력은 Zod schema와 DB constraint를 모두 통과해야 저장됩니다.
 원문에 실제로 존재하지 않는 evidence는 제거하고 해당 분석을
@@ -111,7 +113,6 @@ Hosted 함수와 Cron은 아래 순서로 반영합니다. Docker는 필요하�
 pnpm supabase secrets set \
   X_API_BEARER_TOKEN=... \
   DEEPSEEK_API_KEY=... \
-  SERENITY_X_USER_ID=... \
   SERENITY_CRON_SECRET=...
 pnpm supabase functions deploy ingest-x --use-api
 pnpm supabase functions deploy analyze-posts --use-api
@@ -135,6 +136,43 @@ pnpm supabase db reset
 초기 migration에는 핵심 테이블, RLS, 분석 job 함수,
 `security_invoker` view가 포함됩니다. Secret key는 RLS를 우회할 수 있으므로
 이 앱을 외부에 배포하려면 반드시 Auth를 다시 추가해야 합니다.
+
+## Shay Boloor fan-project disclosure
+
+Shay Boloor(@StockSavvyShay)의 공개 성장주 투자 관점을 분석 대상으로
+포함합니다. 공개 포트폴리오 성과는 Savvy Trader를 통해 추적되지만
+회계법인의 감사를 받은 운용 성과가 아니며, 공개 수익률은 모든 투자자의 실제
+수익을 의미하지 않습니다. 이 프로젝트는 공개 게시물을 분석하는 팬
+프로젝트일 뿐 Shay 본인이나 관련 회사와 제휴된 관계가 아닙니다.
+
+## 추적 분석가 추가
+
+분석가별 username과 user ID는 환경변수로 관리하지 않습니다. 런타임은
+`analyst_profiles`의 `active=true` 레코드를 수집 대상으로 사용하며, X user
+ID는 username으로 최초 한 번 조회해 `ingestion_cursors`에 저장합니다.
+
+새 분석가는 migration 또는 관리용 SQL에서 프로필 한 건만 추가하면 됩니다.
+
+```sql
+insert into public.analyst_profiles (
+  analyst_key,
+  display_name,
+  x_username,
+  follower_label,
+  description_ko,
+  focus_areas,
+  sort_order
+)
+values (
+  'new_analyst',
+  'New Analyst',
+  'x_username',
+  null,
+  '공개 투자 관점 설명',
+  array['AI 인프라'],
+  30
+);
+```
 
 ## Verify
 

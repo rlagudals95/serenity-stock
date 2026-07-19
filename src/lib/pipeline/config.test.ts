@@ -15,7 +15,7 @@ describe("resolvePipelineConfig", () => {
     });
   });
 
-  it("builds a cost-bounded Serenity sync configuration", () => {
+  it("builds a cost-bounded source-agnostic sync configuration", () => {
     expect(
       resolvePipelineConfig({
         SUPABASE_URL: "https://serenity.supabase.co",
@@ -33,7 +33,6 @@ describe("resolvePipelineConfig", () => {
         supabaseUrl: "https://serenity.supabase.co",
         supabaseSecretKey: "sb_secret_test",
         xBearerToken: "x-token",
-        xUsername: "aleabitoreddit",
         deepseekApiKey: "deepseek-token",
         deepseekModel: "deepseek-v4-flash",
         maxPosts: 500,

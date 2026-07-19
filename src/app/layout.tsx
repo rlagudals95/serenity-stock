@@ -1,4 +1,5 @@
 import { Fragment_Mono, Gothic_A1 } from "next/font/google";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 
 import { AppShell } from "@/components/app-shell";
@@ -17,10 +18,34 @@ const fragment = Fragment_Mono({
   weight: "400",
 });
 
-export const metadata: Metadata = {
-  title: "Serenity Intelligence",
-  description: "Serenity 투자 관점과 원문을 추적하는 개인 리서치 도구",
-};
+const title = "Public Investor Intelligence";
+const description =
+  "Serenity와 Shay Boloor의 공개 투자 관점과 원문을 비교하는 리서치 도구";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const incoming = await headers();
+  const host = incoming.get("x-forwarded-host") ?? incoming.get("host");
+  const protocol = incoming.get("x-forwarded-proto") ?? "http";
+  const origin = host ? `${protocol}://${host}` : "http://localhost:3000";
+  const image = new URL("/og.png", origin).toString();
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      images: [{ url: image, width: 1732, height: 908 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+  };
+}
 
 export default function RootLayout({
   children,

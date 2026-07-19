@@ -22,23 +22,27 @@ export interface SyncResult {
   failed: number;
 }
 
+interface TrackedSource {
+  analyst_key: string;
+  x_username: string;
+}
+
 async function findSourceCursor(
   client: SupabaseClient,
   username: string,
 ): Promise<{ userId?: string; sinceId?: string; storedCount: number }> {
-  const sourcePattern = `https://x.com/${username}/status/%`;
   const [latest, total] = await Promise.all([
     client
       .from("posts")
       .select("author_id,x_post_id")
-      .like("url", sourcePattern)
+      .ilike("author_username", username)
       .order("posted_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
     client
       .from("posts")
       .select("id", { count: "exact", head: true })
-      .like("url", sourcePattern),
+      .ilike("author_username", username),
   ]);
 
   if (latest.error) {
@@ -78,8 +82,22 @@ async function finishPipelineRun(
     .eq("id", runId);
 }
 
-export async function syncSerenity(config: PipelineConfig): Promise<SyncResult> {
+export async function syncTrackedAnalysts(
+  config: PipelineConfig,
+): Promise<SyncResult> {
   const client = createPipelineClient(config, "serenity-local-sync");
+  const { data: sourceData, error: sourceError } = await client
+    .from("analyst_profiles")
+    .select("analyst_key,x_username")
+    .eq("active", true)
+    .order("sort_order");
+  if (sourceError) {
+    throw new Error(`Tracked analyst lookup failed: ${sourceError.message}`);
+  }
+  const sources = (sourceData ?? []) as TrackedSource[];
+  if (sources.length === 0) {
+    throw new Error("No active analyst profiles are configured.");
+  }
   const runId = crypto.randomUUID();
   const result: SyncResult = {
     fetched: 0,
@@ -97,7 +115,10 @@ export async function syncSerenity(config: PipelineConfig): Promise<SyncResult> 
     counts: result,
     metadata: {
       source: "x",
-      username: config.xUsername,
+      sources: sources.map((source) => ({
+        key: source.analyst_key,
+        username: source.x_username,
+      })),
       model: config.deepseekModel,
       max_posts: config.maxPosts,
       analysis_batch_size: config.analysisBatchSize,
@@ -109,26 +130,28 @@ export async function syncSerenity(config: PipelineConfig): Promise<SyncResult> 
 
   try {
     await ensureAnalysisConfig(client, config.deepseekModel);
-    const cursor = await findSourceCursor(client, config.xUsername);
-    const isBackfill = cursor.storedCount < config.maxPosts;
-    const user = cursor.userId
-      ? { id: cursor.userId }
-      : await fetchXUser(config.xUsername, config.xBearerToken);
-    const fetchedPosts = await fetchXPosts({
-      userId: user.id,
-      username: config.xUsername,
-      bearerToken: config.xBearerToken,
-      sinceId: isBackfill ? undefined : cursor.sinceId,
-      maxResults: config.maxPosts,
-    });
-    const posts = [
-      ...new Map(
-        fetchedPosts.map((post) => [post.x_post_id, post]),
-      ).values(),
-    ];
-    result.fetched = posts.length;
+    for (const source of sources) {
+      const cursor = await findSourceCursor(client, source.x_username);
+      const isBackfill = cursor.storedCount < config.maxPosts;
+      const user = cursor.userId
+        ? { id: cursor.userId }
+        : await fetchXUser(source.x_username, config.xBearerToken);
+      const fetchedPosts = await fetchXPosts({
+        userId: user.id,
+        username: source.x_username,
+        bearerToken: config.xBearerToken,
+        sinceId: isBackfill ? undefined : cursor.sinceId,
+        maxResults: config.maxPosts,
+      });
+      const posts = [
+        ...new Map(
+          fetchedPosts.map((post) => [post.x_post_id, post]),
+        ).values(),
+      ];
+      result.fetched += posts.length;
 
-    if (posts.length > 0) {
+      if (posts.length === 0) continue;
+
       const postIds = posts.map((post) => post.x_post_id);
       const { count: existingCount, error: countError } = await client
         .from("posts")
@@ -142,8 +165,8 @@ export async function syncSerenity(config: PipelineConfig): Promise<SyncResult> 
         .from("posts")
         .upsert(posts, { onConflict: "x_post_id", ignoreDuplicates: true });
       if (error) throw new Error(`Post upsert failed: ${error.message}`);
-      result.inserted = posts.length - (existingCount ?? 0);
-      result.duplicates = existingCount ?? 0;
+      result.inserted += posts.length - (existingCount ?? 0);
+      result.duplicates += existingCount ?? 0;
     }
 
     const { data: jobsCreated, error: enqueueError } = await client.rpc(

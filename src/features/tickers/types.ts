@@ -6,6 +6,42 @@ export type CumulativeSentiment =
 
 export type Stance = "bullish" | "bearish" | "mixed" | "neutral" | "unknown";
 
+export type AnalystKey = "serenity" | "shay_boloor" | (string & {});
+
+export type AnalystComparison =
+  | "agreement"
+  | "disagreement"
+  | "mixed"
+  | "single_source";
+
+export interface AnalystProfile {
+  key: AnalystKey;
+  name: string;
+  username: string;
+  followerLabel: string;
+  description: string;
+  focusAreas: string[];
+}
+
+export interface AnalystSnapshot {
+  key: AnalystKey;
+  name: string;
+  username: string;
+  totalMentions: number;
+  positiveCount: number;
+  negativeCount: number;
+  neutralCount: number;
+  mixedCount: number;
+  unknownCount: number;
+  cumulativeSentiment: CumulativeSentiment;
+  latestStance: Stance;
+  latestClaim: string | null;
+  latestChangeType: ChangeType;
+  firstMentionedAt: string;
+  lastMentionedAt: string;
+  latestSourceUrl: string | null;
+}
+
 export type ChangeType =
   | "first_mention"
   | "new_claim"
@@ -41,6 +77,7 @@ export interface TickerOverview {
   lastMentionedAt: string;
   watchlisted: boolean;
   reviewCount: number;
+  analysts?: AnalystSnapshot[];
 }
 
 export interface TickerQuery {
@@ -62,6 +99,7 @@ export interface Claim {
   text: string;
   sourceUrl: string;
   repeatCount?: number;
+  analyst: Pick<AnalystSnapshot, "key" | "name" | "username">;
 }
 
 export interface ResearchItem {
@@ -69,6 +107,7 @@ export interface ResearchItem {
   text: string;
   date: string;
   sourceUrl: string;
+  analyst: Pick<AnalystSnapshot, "key" | "name" | "username">;
 }
 
 export interface TrendPoint {
@@ -92,11 +131,14 @@ export interface Opinion {
   sourceUrl: string | null;
   confidence: number;
   reviewStatus: "auto" | "approved" | "needs_review";
+  analyst: Pick<AnalystSnapshot, "key" | "name" | "username">;
 }
 
 export interface TickerDetail extends TickerOverview {
+  analysts: AnalystSnapshot[];
   threadCount: number;
   lastAnalysisAt: string;
+  analystComparison: AnalystComparison;
   recentChange: {
     summary: string;
     confidence: number;

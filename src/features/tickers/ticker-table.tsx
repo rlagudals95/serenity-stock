@@ -15,6 +15,7 @@ const headers: Array<{
   className: string;
 }> = [
   { label: "종목", sort: "ticker", className: "ticker-column" },
+  { label: "분석가", className: "analyst-column" },
   { label: "총 언급", sort: "totalMentions", className: "total-column" },
   { label: "긍정 / 부정", sort: "positiveCount", className: "distribution-column" },
   { label: "누적 관점", className: "sentiment-column" },
@@ -66,6 +67,7 @@ export function TickerTable({
           <colgroup>
             <col className="watchlist-column" />
             <col className="ticker-column" />
+            <col className="analyst-column" />
             <col className="total-column" />
             <col className="distribution-column" />
             <col className="sentiment-column" />

@@ -48,6 +48,7 @@ function stanceTone(value: TickerOverview["latestStance"]) {
 
 export function TickerRow({ row }: { row: TickerOverview }) {
   const href = `/tickers/${row.ticker}`;
+  const analysts = row.analysts ?? [];
   const ChangeIcon = row.changeType
     ? changeIcons[row.changeType as keyof typeof changeIcons]
     : undefined;
@@ -73,8 +74,27 @@ export function TickerRow({ row }: { row: TickerOverview }) {
         >
           <span className="ticker-symbol">{row.ticker}</span>
           <span className="company-name">{row.companyName}</span>
+          <span className="ticker-link__analysts">
+            {analysts.map((analyst) => analyst.name).join(" · ")}
+          </span>
         </Link>
       </th>
+      <td className="analyst-column">
+        <div
+          aria-label={`${analysts.map((analyst) => analyst.name).join(", ")} 언급`}
+          className="analyst-presence"
+        >
+          {analysts.map((analyst) => (
+            <span
+              className={`analyst-presence__item analyst-presence__item--${analyst.key}`}
+              key={analyst.key}
+              title={`@${analyst.username} · ${analyst.totalMentions}회 언급`}
+            >
+              {analyst.key === "shay_boloor" ? "Shay" : analyst.name}
+            </span>
+          ))}
+        </div>
+      </td>
       <td className="number-column total-column">
         <span className="mobile-total-label">총</span>{" "}
         <span className="data-number data-number--strong">

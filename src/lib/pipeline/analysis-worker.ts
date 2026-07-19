@@ -20,6 +20,7 @@ interface StoredPostRow {
   id: number | string;
   x_post_id: string;
   author_id: string;
+  author_username: string;
   text: string;
   url: string;
   post_type: StoredPost["post_type"];
@@ -155,6 +156,7 @@ function toStoredPost(row: StoredPostRow): StoredPost {
   return {
     x_post_id: row.x_post_id,
     author_id: row.author_id,
+    author_username: row.author_username,
     text: row.text,
     url: row.url,
     post_type: row.post_type,

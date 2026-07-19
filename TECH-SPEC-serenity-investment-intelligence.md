@@ -981,8 +981,7 @@ Vercel에는 service role, X, DeepSeek, Telegram secret를 넣지 않는다.
 ### 10.2 Supabase Edge Function secrets
 
 ```env
-X_BEARER_TOKEN=
-SERENITY_X_USER_ID=
+X_API_BEARER_TOKEN=
 
 LLM_PROVIDER=deepseek
 LLM_MODEL=deepseek-v4-flash
@@ -992,6 +991,10 @@ LLM_BASE_URL=https://api.deepseek.com
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 ```
+
+추적 대상은 `analyst_profiles`의 활성 레코드로 관리한다. Edge Function은
+username으로 X user ID를 최초 조회하고 `ingestion_cursors.user_id`에
+캐시하므로 계정별 secret를 추가하지 않는다.
 
 Supabase가 기본 제공하는 project URL과 service role secret를 재정의하지 않는다.
 

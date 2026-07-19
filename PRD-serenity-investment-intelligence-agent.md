@@ -830,8 +830,7 @@ DB와 Daily Brief 조회가 불편하다는 사용 증거가 쌓일 때 진행�
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 
-X_BEARER_TOKEN=
-SERENITY_X_USER_ID=
+X_API_BEARER_TOKEN=
 
 LLM_PROVIDER=deepseek
 LLM_MODEL=deepseek-v4-flash
@@ -841,6 +840,9 @@ LLM_BASE_URL=https://api.deepseek.com
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 ```
+
+추적 대상 계정은 환경 변수가 아니라 `analyst_profiles`에서 관리한다. X user
+ID는 username으로 조회한 뒤 분석가별 ingestion cursor에 저장한다.
 
 ## Appendix B. 참고한 공식 문서
 

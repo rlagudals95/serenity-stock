@@ -1,12 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isCronAuthorized } from "../../../supabase/functions/_shared/auth";
 import { parseDeepSeekContent } from "../../../supabase/functions/_shared/deepseek";
 import {
   chooseNewestPostId,
+  fetchXUser,
   mapXPost,
   nextCursorState,
 } from "../../../supabase/functions/_shared/x";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("Edge Function shared helpers", () => {
   it("authorizes only the exact cron secret", async () => {
@@ -43,7 +48,28 @@ describe("Edge Function shared helpers", () => {
       post_type: "quote",
       referenced_post_ids: ["100"],
       url: "https://x.com/aleabitoreddit/status/200",
+      author_username: "aleabitoreddit",
     });
+  });
+
+  it("resolves a tracked username to the X user id on first ingestion", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: { id: "987", username: "StockSavvyShay" },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchXUser("StockSavvyShay", "token")).resolves.toEqual({
+      id: "987",
+      username: "StockSavvyShay",
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "/users/by/username/StockSavvyShay",
+    );
   });
 
   it("selects the numerically newest X snowflake id", () => {

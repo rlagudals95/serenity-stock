@@ -1,5 +1,8 @@
 import { applyTickerQuery, parseTickerQuery } from "@/features/tickers/query";
-import { getTickerOverviewRows } from "@/features/tickers/repository";
+import {
+  getAnalystProfiles,
+  getTickerOverviewRows,
+} from "@/features/tickers/repository";
 import { TickerOverviewPage } from "@/features/tickers/ticker-overview-page";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +20,10 @@ export default async function TickersPage({
   }
 
   const query = parseTickerQuery(params);
-  const allRows = await getTickerOverviewRows();
+  const [allRows, analysts] = await Promise.all([
+    getTickerOverviewRows(),
+    getAnalystProfiles(),
+  ]);
   const rows = applyTickerQuery(allRows, query);
 
   return (
@@ -25,6 +31,7 @@ export default async function TickersPage({
       query={query}
       rows={rows}
       totalCount={allRows.length}
+      analysts={analysts}
     />
   );
 }

@@ -4,7 +4,6 @@ export interface PipelineConfig {
   supabaseUrl: string;
   supabaseSecretKey: string;
   xBearerToken: string;
-  xUsername: string;
   deepseekApiKey: string;
   deepseekModel: string;
   maxPosts: number;
@@ -66,7 +65,6 @@ export function resolvePipelineConfig(
       supabaseUrl,
       supabaseSecretKey,
       xBearerToken,
-      xUsername: value(environment.SERENITY_X_USERNAME) ?? "aleabitoreddit",
       deepseekApiKey,
       deepseekModel:
         value(environment.DEEPSEEK_MODEL) ?? "deepseek-v4-flash",

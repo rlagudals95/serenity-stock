@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { backfillSerenityHistory } from "@/lib/pipeline/backfill";
+import { backfillTrackedAnalystHistory } from "@/lib/pipeline/backfill";
 import { getPipelineConfig } from "@/lib/pipeline/config";
 
 export const runtime = "nodejs";
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   try {
     return NextResponse.json(
-      await backfillSerenityHistory(getPipelineConfig()),
+      await backfillTrackedAnalystHistory(getPipelineConfig()),
     );
   } catch (error) {
     return NextResponse.json(

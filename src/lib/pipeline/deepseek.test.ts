@@ -48,6 +48,7 @@ describe("parseDeepSeekContent", () => {
       post: {
         x_post_id: "1",
         author_id: "2",
+        author_username: "StockSavvyShay",
         text: "Long recap",
         url: "https://x.com/aleabitoreddit/status/1",
         post_type: "original",
@@ -66,8 +67,14 @@ describe("parseDeepSeekContent", () => {
 
     const request = JSON.parse(
       String((fetchMock.mock.calls[0][1] as RequestInit).body),
-    ) as { max_tokens: number };
+    ) as {
+      max_tokens: number;
+      messages: Array<{ role: string; content: string }>;
+    };
     expect(request.max_tokens).toBe(8_000);
+    expect(JSON.parse(request.messages[1].content)).toMatchObject({
+      author: "@StockSavvyShay",
+    });
     expect(timeout).toHaveBeenCalledWith(120_000);
   });
 });

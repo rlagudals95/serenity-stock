@@ -1,4 +1,4 @@
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, UsersRound } from "lucide-react";
 import Link from "next/link";
 
 import { StatusPill } from "@/components/ui/status-pill";
@@ -82,6 +82,17 @@ export function TickerHeader({ ticker }: { ticker: TickerDetail }) {
           <span className="context-item__label">최근 변화</span>
           <span className="context-item__value">
             {ticker.changeType ? changeLabels[ticker.changeType] : "변화 없음"}
+          </span>
+        </div>
+        <div className="context-item context-item--coverage">
+          <span className="context-item__label">분석가 커버리지</span>
+          <span className="context-item__value">
+            <UsersRound aria-hidden="true" size={13} />
+            {ticker.analysts.length === 2
+              ? "두 분석가 모두 언급"
+              : ticker.analysts.length > 2
+                ? `${ticker.analysts.length}명 분석가가 언급`
+                : `${ticker.analysts[0]?.name ?? "분석가"}만 언급`}
           </span>
         </div>
       </div>

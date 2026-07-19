@@ -1,4 +1,6 @@
 import type {
+  AnalystComparison,
+  AnalystSnapshot,
   ChangeType,
   Stance,
   TickerDetail,
@@ -6,7 +8,7 @@ import type {
   TrendPoint,
 } from "./types";
 
-export const tickerOverviewFixtures: TickerOverview[] = [
+const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "COHR",
     companyName: "Coherent Corp.",
@@ -247,9 +249,89 @@ const narratives: Record<
   },
 };
 
-function sourceUrl(ticker: string, offset: number) {
+function fixtureAnalysts(
+  row: Omit<TickerOverview, "analysts">,
+): AnalystSnapshot[] {
+  const shayMentions = Math.max(2, Math.round(row.totalMentions * 0.4));
+  const serenityMentions = row.totalMentions - shayMentions;
+  const shayPositive = Math.min(
+    shayMentions,
+    Math.round(row.positiveCount * 0.45),
+  );
+  const shayNegative = Math.min(
+    shayMentions - shayPositive,
+    Math.round(row.negativeCount * 0.55),
+  );
+  const shayOther = Math.max(0, shayMentions - shayPositive - shayNegative);
+  const serenityPositive = Math.max(0, row.positiveCount - shayPositive);
+  const serenityNegative = Math.max(0, row.negativeCount - shayNegative);
+  const serenityOther = Math.max(
+    0,
+    serenityMentions - serenityPositive - serenityNegative,
+  );
+
+  return [
+    {
+      key: "shay_boloor",
+      name: "Shay Boloor",
+      username: "StockSavvyShay",
+      totalMentions: shayMentions,
+      positiveCount: shayPositive,
+      negativeCount: shayNegative,
+      neutralCount: Math.ceil(shayOther / 2),
+      mixedCount: Math.floor(shayOther / 2),
+      unknownCount: 0,
+      cumulativeSentiment:
+        shayPositive + shayNegative < 3
+          ? "insufficient"
+          : shayPositive >= shayNegative
+            ? "positive"
+            : "negative",
+      latestStance: narratives[row.ticker].stance,
+      latestClaim: narratives[row.ticker].claim,
+      latestChangeType: narratives[row.ticker].changeType,
+      firstMentionedAt: "2026-05-10T03:00:00.000Z",
+      lastMentionedAt: row.lastMentionedAt,
+      latestSourceUrl: sourceUrl(
+        row.ticker,
+        1,
+        "StockSavvyShay",
+      ),
+    },
+    {
+      key: "serenity",
+      name: "Serenity",
+      username: "aleabitoreddit",
+      totalMentions: serenityMentions,
+      positiveCount: serenityPositive,
+      negativeCount: serenityNegative,
+      neutralCount: Math.ceil(serenityOther / 2),
+      mixedCount: Math.floor(serenityOther / 2),
+      unknownCount: 0,
+      cumulativeSentiment: row.cumulativeSentiment,
+      latestStance: row.latestStance,
+      latestClaim: narratives[row.ticker].earlierClaim,
+      latestChangeType: row.changeType,
+      firstMentionedAt: "2026-04-01T03:00:00.000Z",
+      lastMentionedAt: "2026-07-16T03:20:00.000Z",
+      latestSourceUrl: sourceUrl(row.ticker, 2, "aleabitoreddit"),
+    },
+  ];
+}
+
+export const tickerOverviewFixtures: TickerOverview[] =
+  baseTickerOverviewFixtures.map((row) => ({
+    ...row,
+    analysts: fixtureAnalysts(row),
+  }));
+
+function sourceUrl(
+  ticker: string,
+  offset: number,
+  username = "aleabitoreddit",
+) {
   const base = 1900000000000000000n + BigInt(ticker.charCodeAt(0) * 100 + offset);
-  return `https://x.com/serenitymarkets/status/${base}`;
+  return `https://x.com/${username}/status/${base}`;
 }
 
 function buildTrend(seed: number): TrendPoint[] {
@@ -278,14 +360,39 @@ function buildTrend(seed: number): TrendPoint[] {
 
 function buildDetail(row: TickerOverview, index: number): TickerDetail {
   const narrative = narratives[row.ticker];
-  const source1 = sourceUrl(row.ticker, 1);
-  const source2 = sourceUrl(row.ticker, 2);
-  const source3 = sourceUrl(row.ticker, 3);
+  const analysts = row.analysts ?? [];
+  const source1 = sourceUrl(row.ticker, 1, "StockSavvyShay");
+  const source2 = sourceUrl(row.ticker, 2, "aleabitoreddit");
+  const source3 = sourceUrl(row.ticker, 3, "StockSavvyShay");
+  const analystComparison: AnalystComparison =
+    analysts.length < 2
+      ? "single_source"
+      : analysts.some((analyst) => analyst.latestStance === "bullish") &&
+          analysts.some((analyst) => analyst.latestStance === "bearish")
+        ? "disagreement"
+        : analysts.every(
+              (analyst) =>
+                analyst.latestStance === analysts[0].latestStance,
+            )
+          ? "agreement"
+          : "mixed";
+  const shay = {
+    key: "shay_boloor" as const,
+    name: "Shay Boloor",
+    username: "StockSavvyShay",
+  };
+  const serenity = {
+    key: "serenity" as const,
+    name: "Serenity",
+    username: "aleabitoreddit",
+  };
 
   return {
     ...row,
+    analysts,
     threadCount: Math.max(4, Math.round(row.totalMentions * 0.64)),
     lastAnalysisAt: "2026-07-18T08:02:00.000Z",
+    analystComparison,
     recentChange: {
       summary: narrative.claim,
       confidence: row.reviewCount > 0 ? 0.72 : 0.91,
@@ -300,6 +407,7 @@ function buildDetail(row: TickerOverview, index: number): TickerDetail {
         changeType: narrative.changeType,
         text: narrative.claim,
         sourceUrl: source1,
+        analyst: shay,
       },
       {
         id: `${row.ticker}-claim-2`,
@@ -309,6 +417,7 @@ function buildDetail(row: TickerOverview, index: number): TickerDetail {
         text: narrative.earlierClaim,
         sourceUrl: source2,
         repeatCount: 3,
+        analyst: serenity,
       },
       {
         id: `${row.ticker}-claim-3`,
@@ -317,6 +426,7 @@ function buildDetail(row: TickerOverview, index: number): TickerDetail {
         changeType: "unclear",
         text: `${row.companyName}의 다음 실적에서 주문과 매출 인식 시차를 확인해야 한다는 주장`,
         sourceUrl: source3,
+        analyst: shay,
       },
     ],
     risks: [
@@ -325,12 +435,14 @@ function buildDetail(row: TickerOverview, index: number): TickerDetail {
         text: narrative.risk,
         date: "2026-07-16T06:30:00.000Z",
         sourceUrl: source2,
+        analyst: serenity,
       },
       {
         id: `${row.ticker}-risk-2`,
         text: "시장 기대가 실제 실적 개선보다 빠르게 높아질 가능성",
         date: "2026-07-05T02:15:00.000Z",
         sourceUrl: source3,
+        analyst: shay,
       },
     ],
     catalysts: [
@@ -339,12 +451,14 @@ function buildDetail(row: TickerOverview, index: number): TickerDetail {
         text: narrative.catalyst,
         date: "2026-07-15T01:40:00.000Z",
         sourceUrl: source1,
+        analyst: shay,
       },
       {
         id: `${row.ticker}-catalyst-2`,
         text: "다음 분기 가이던스에서 확인되는 수요 지속성",
         date: "2026-07-03T04:25:00.000Z",
         sourceUrl: source3,
+        analyst: shay,
       },
     ],
     trend: buildTrend(index + 1),
@@ -363,6 +477,7 @@ function buildDetail(row: TickerOverview, index: number): TickerDetail {
         sourceUrl: source1,
         confidence: row.reviewCount > 0 ? 0.72 : 0.93,
         reviewStatus: row.reviewCount > 0 ? "needs_review" : "auto",
+        analyst: shay,
       },
       {
         id: `${row.ticker}-opinion-2`,
@@ -379,6 +494,7 @@ function buildDetail(row: TickerOverview, index: number): TickerDetail {
         sourceUrl: source2,
         confidence: 0.9,
         reviewStatus: "approved",
+        analyst: serenity,
       },
       {
         id: `${row.ticker}-opinion-3`,
@@ -395,6 +511,7 @@ function buildDetail(row: TickerOverview, index: number): TickerDetail {
         sourceUrl: source3,
         confidence: 0.84,
         reviewStatus: "auto",
+        analyst: shay,
       },
     ],
     research: {

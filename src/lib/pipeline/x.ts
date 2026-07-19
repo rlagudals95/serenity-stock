@@ -15,6 +15,7 @@ export interface XPost {
 export interface StoredPost {
   x_post_id: string;
   author_id: string;
+  author_username?: string;
   text: string;
   url: string;
   post_type: "original" | "reply" | "quote" | "repost";
@@ -77,6 +78,7 @@ export function mapXPost(post: XPost, username: string): StoredPost {
   return {
     x_post_id: post.id,
     author_id: post.author_id,
+    author_username: username,
     text: post.note_tweet?.text?.trim() || post.text,
     url: `https://x.com/${username}/status/${post.id}`,
     post_type: postType(post),

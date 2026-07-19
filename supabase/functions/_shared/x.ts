@@ -15,6 +15,7 @@ export interface XPost {
 export interface StoredPost {
   x_post_id: string;
   author_id: string;
+  author_username?: string;
   text: string;
   url: string;
   post_type: "original" | "reply" | "quote" | "repost";
@@ -33,6 +34,11 @@ interface XResponse<T> {
   meta?: {
     next_token?: string;
   };
+}
+
+interface XUser {
+  id: string;
+  username: string;
 }
 
 export interface XPostPage {
@@ -73,6 +79,7 @@ export function mapXPost(post: XPost, username: string): StoredPost {
   return {
     x_post_id: post.id,
     author_id: post.author_id,
+    author_username: username,
     text: post.note_tweet?.text?.trim() || post.text,
     url: `https://x.com/${username}/status/${post.id}`,
     post_type: postType(post),
@@ -84,6 +91,37 @@ export function mapXPost(post: XPost, username: string): StoredPost {
     metrics: post.public_metrics ?? {},
     raw: post,
   };
+}
+
+export async function fetchXUser(
+  username: string,
+  bearerToken: string,
+): Promise<XUser> {
+  const url = new URL(
+    `https://api.x.com/2/users/by/username/${encodeURIComponent(username)}`,
+  );
+  url.searchParams.set("user.fields", "id,username");
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${bearerToken}`,
+      "User-Agent": "serenity-investment-intelligence/0.1",
+    },
+    signal: AbortSignal.timeout(20_000),
+  });
+  const body = (await response.json()) as XResponse<XUser>;
+  if (!response.ok) {
+    const detail =
+      body.detail ??
+      body.errors?.[0]?.detail ??
+      body.title ??
+      body.errors?.[0]?.title ??
+      "unknown error";
+    throw new Error(`X API request failed (${response.status}): ${detail}`);
+  }
+  if (!body.data?.id) {
+    throw new Error(`X user lookup did not return an id for @${username}.`);
+  }
+  return body.data;
 }
 
 function compareSnowflakeIds(left: string, right: string) {

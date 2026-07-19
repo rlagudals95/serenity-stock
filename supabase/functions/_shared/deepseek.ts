@@ -21,7 +21,7 @@ export interface DeepSeekAnalysis {
   outputTokens: number | null;
 }
 
-const systemPrompt = `You analyze public X posts by Serenity (@aleabitoreddit), an AI and semiconductor supply-chain analyst.
+const systemPrompt = `You analyze public X posts by growth-stock analysts, including Serenity (@aleabitoreddit) and Shay Boloor (@StockSavvyShay).
 Return only one JSON object. Analyze investment opinions at the post-ticker level.
 
 Required JSON:
@@ -50,7 +50,7 @@ Required JSON:
   }]
 }
 
-Do not invent ticker symbols, claims, risks, catalysts, or evidence. Every evidence string must be copied exactly from the supplied source text. Return at most one ticker_analyses item per ticker and no more than 25 items. If there is no investable company opinion, return an empty ticker_analyses array.`;
+Do not invent ticker symbols, claims, risks, catalysts, or evidence. Every evidence string must be copied exactly from the supplied source text. Treat each author's history independently when classifying a first mention or viewpoint change. Do not attribute a quoted post's view to the author unless the supplied text clearly endorses it. Return at most one ticker_analyses item per ticker and no more than 25 items. If there is no investable company opinion, return an empty ticker_analyses array.`;
 
 export function parseDeepSeekContent(content: string): unknown {
   const normalized = content
@@ -87,7 +87,7 @@ async function requestAnalysis({
           role: "user",
           content: JSON.stringify({
             source: "x",
-            author: "@aleabitoreddit",
+            author: `@${post.author_username ?? "unknown"}`,
             post_type: post.post_type,
             posted_at: post.posted_at,
             explicit_ticker_candidates: candidates,

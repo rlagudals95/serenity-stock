@@ -2,6 +2,7 @@ import {
   ArrowRight,
   ExternalLink,
   Flame,
+  GitCompareArrows,
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
@@ -46,6 +47,7 @@ function ResearchList({
         <li key={item.id}>
           <p>{item.text}</p>
           <div className="item-meta">
+            <span>{item.analyst.name}</span>
             <time dateTime={item.date}>{formatKstDate(item.date, false)}</time>
             <SourceLink href={item.sourceUrl} />
           </div>
@@ -57,10 +59,73 @@ function ResearchList({
 
 export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
   const directional = ticker.positiveCount + ticker.negativeCount;
+  const comparisonLabel =
+    ticker.analystComparison === "agreement"
+      ? "최근 관점 일치"
+      : ticker.analystComparison === "disagreement"
+        ? "최근 관점 엇갈림"
+        : ticker.analystComparison === "single_source"
+          ? "단일 분석가 언급"
+          : "관점 비교 보류";
 
   return (
-    <div className="detail-overview-grid">
-      <div className="detail-overview-main">
+    <div className="detail-overview-stack">
+      <section className="analyst-comparison-section">
+        <header className="section-heading-row">
+          <div>
+            <p className="section-kicker">SOURCE COMPARISON</p>
+            <h2>분석가별 최근 관점</h2>
+          </div>
+          <span
+            className={`comparison-result comparison-result--${ticker.analystComparison}`}
+          >
+            <GitCompareArrows aria-hidden="true" size={14} />
+            {comparisonLabel}
+          </span>
+        </header>
+        <div className="analyst-comparison-grid">
+          {ticker.analysts.map((analyst) => (
+            <article
+              className={`analyst-signal-card analyst-signal-card--${analyst.key}`}
+              key={analyst.key}
+            >
+              <header>
+                <div>
+                  <strong>{analyst.name}</strong>
+                  <span>@{analyst.username}</span>
+                </div>
+                <StatusPill
+                  tone={
+                    analyst.latestStance === "bullish"
+                      ? "positive"
+                      : analyst.latestStance === "bearish"
+                        ? "negative"
+                        : analyst.latestStance === "mixed"
+                          ? "mixed"
+                          : "neutral"
+                  }
+                >
+                  {stanceLabels[analyst.latestStance]}
+                </StatusPill>
+              </header>
+              <p>
+                {analyst.latestClaim ??
+                  "최근 게시글에서 명확한 투자 주장이 추출되지 않았습니다."}
+              </p>
+              <footer>
+                <span>첫 언급 {formatKstDate(analyst.firstMentionedAt, false)}</span>
+                <span>총 {analyst.totalMentions}회</span>
+                {analyst.latestSourceUrl ? (
+                  <SourceLink href={analyst.latestSourceUrl} label="최근 원문" />
+                ) : null}
+              </footer>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="detail-overview-grid">
+        <div className="detail-overview-main">
         <section className="detail-section sentiment-trend-section">
           <header className="section-heading-row">
             <div>
@@ -112,6 +177,7 @@ export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
             {ticker.claims.map((claim) => (
               <li key={claim.id}>
                 <div className="claim-meta">
+                  <span className="claim-analyst">{claim.analyst.name}</span>
                   <time dateTime={claim.date}>{formatKstDate(claim.date, false)}</time>
                   <StatusPill
                     tone={
@@ -139,9 +205,9 @@ export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
             ))}
           </ol>
         </section>
-      </div>
+        </div>
 
-      <aside className="detail-overview-rail">
+        <aside className="detail-overview-rail">
         <section className="rail-section recent-change-section">
           <header>
             <Flame aria-hidden="true" size={15} />
@@ -183,7 +249,8 @@ export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
             items={ticker.catalysts}
           />
         </section>
-      </aside>
+        </aside>
+      </div>
     </div>
   );
 }

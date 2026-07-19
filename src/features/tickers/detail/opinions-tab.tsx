@@ -20,16 +20,25 @@ export function OpinionsTab({
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const stance = params.get("stance") ?? "all";
+  const analyst = params.get("analyst") ?? "all";
   const reviewOnly = params.get("review") === "true";
+  const analystOptions = useMemo(
+    () =>
+      [...new Map(
+        opinions.map((opinion) => [opinion.analyst.key, opinion.analyst]),
+      ).values()],
+    [opinions],
+  );
 
   const filtered = useMemo(
     () =>
       opinions.filter(
         (opinion) =>
           (stance === "all" || opinion.stance === stance) &&
+          (analyst === "all" || opinion.analyst.key === analyst) &&
           (!reviewOnly || opinion.reviewStatus === "needs_review"),
       ),
-    [opinions, reviewOnly, stance],
+    [analyst, opinions, reviewOnly, stance],
   );
 
   function update(name: string, value: string) {
@@ -49,6 +58,20 @@ export function OpinionsTab({
           <Filter aria-hidden="true" size={14} />
           <span>{filtered.length}개 의견</span>
         </div>
+        <label className="select-control">
+          <span className="sr-only">분석가</span>
+          <select
+            onChange={(event) => update("analyst", event.target.value)}
+            value={analyst}
+          >
+            <option value="all">전체 분석가</option>
+            {analystOptions.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="select-control">
           <span className="sr-only">의견 성향</span>
           <select
