@@ -15,7 +15,7 @@ const headers: Array<{
   className: string;
 }> = [
   { label: "종목", sort: "ticker", className: "ticker-column" },
-  { label: "분석가", className: "analyst-column" },
+  { label: "분석가별 최근 관점", className: "analyst-column" },
   { label: "총 언급", sort: "totalMentions", className: "total-column" },
   { label: "긍정 / 부정", sort: "positiveCount", className: "distribution-column" },
   { label: "누적 관점", className: "sentiment-column" },

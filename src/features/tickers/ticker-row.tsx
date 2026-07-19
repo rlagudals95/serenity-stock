@@ -11,6 +11,7 @@ import Link from "next/link";
 
 import { StatusPill } from "@/components/ui/status-pill";
 
+import { AnalystPresence } from "./analyst-presence";
 import {
   changeLabels,
   cumulativeSentimentLabels,
@@ -74,26 +75,21 @@ export function TickerRow({ row }: { row: TickerOverview }) {
         >
           <span className="ticker-symbol">{row.ticker}</span>
           <span className="company-name">{row.companyName}</span>
-          <span className="ticker-link__analysts">
-            {analysts.map((analyst) => analyst.name).join(" · ")}
-          </span>
         </Link>
+        <div className="ticker-link__analysts">
+          <AnalystPresence
+            analysts={analysts}
+            ticker={row.ticker}
+            variant="mobile"
+          />
+        </div>
       </th>
       <td className="analyst-column">
-        <div
-          aria-label={`${analysts.map((analyst) => analyst.name).join(", ")} 언급`}
-          className="analyst-presence"
-        >
-          {analysts.map((analyst) => (
-            <span
-              className={`analyst-presence__item analyst-presence__item--${analyst.key}`}
-              key={analyst.key}
-              title={`@${analyst.username} · ${analyst.totalMentions}회 언급`}
-            >
-              {analyst.key === "shay_boloor" ? "Shay" : analyst.name}
-            </span>
-          ))}
-        </div>
+        <AnalystPresence
+          analysts={analysts}
+          ticker={row.ticker}
+          variant="desktop"
+        />
       </td>
       <td className="number-column total-column">
         <span className="mobile-total-label">총</span>{" "}

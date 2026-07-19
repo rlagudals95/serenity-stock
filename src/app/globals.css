@@ -554,7 +554,7 @@ a {
 
 .ticker-table {
   width: 100%;
-  min-width: 1120px;
+  min-width: 1328px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -570,7 +570,7 @@ a {
 }
 
 .ticker-table col.analyst-column {
-  width: 142px;
+  width: 286px;
 }
 
 .ticker-table col.total-column {
@@ -756,12 +756,266 @@ a {
 }
 
 .analyst-presence {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
+  position: relative;
+  z-index: 20;
+  width: 100%;
+  min-width: 0;
 }
 
-.analyst-presence__item,
+.analyst-presence__trigger {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 60px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.analyst-presence__trigger:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.analyst-presence__chips,
+.analyst-presence__summary,
+.analyst-presence__counts {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.analyst-presence__chips {
+  width: 100%;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.analyst-presence__item {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 20px;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px 1px 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--neutral-soft);
+  color: var(--ink-secondary);
+  font-size: 0.625rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.analyst-presence--desktop .analyst-presence__item {
+  max-width: 78px;
+  flex: 1 1 0;
+}
+
+.analyst-presence__item--bullish {
+  border-color: color-mix(in oklch, var(--positive) 28%, var(--border));
+  background: var(--positive-soft);
+  color: var(--positive);
+}
+
+.analyst-presence__item--bearish {
+  border-color: color-mix(in oklch, var(--negative) 28%, var(--border));
+  background: var(--negative-soft);
+  color: var(--negative);
+}
+
+.analyst-presence__item--mixed {
+  border-color: color-mix(in oklch, var(--mixed) 28%, var(--border));
+  background: var(--mixed-soft);
+  color: var(--mixed);
+}
+
+.analyst-presence__initials {
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: currentcolor;
+  font-family: var(--font-data), monospace;
+  font-size: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.analyst-presence__stance-signal {
+  flex: 0 0 auto;
+  font-size: 0.625rem;
+  line-height: 1;
+}
+
+.analyst-presence__name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-secondary);
+  text-overflow: ellipsis;
+}
+
+.analyst-presence__more {
+  display: inline-flex;
+  min-width: 24px;
+  min-height: 20px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--ink-secondary);
+  font-family: var(--font-data), monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+.analyst-presence__summary {
+  width: 100%;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 0.5625rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.analyst-presence__counts {
+  gap: 6px;
+  font-family: var(--font-data), monospace;
+}
+
+.analyst-presence__counts span:first-child {
+  color: var(--positive);
+}
+
+.analyst-presence__counts span:nth-child(2) {
+  color: var(--negative);
+}
+
+.analyst-presence__comparison {
+  overflow: hidden;
+  color: var(--ink-secondary);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.analyst-presence__empty {
+  color: var(--ink-muted);
+  font-size: 0.6875rem;
+}
+
+.analyst-presence-popover {
+  z-index: 240;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 18px 48px color-mix(in oklch, var(--ink) 18%, transparent);
+  color: var(--ink);
+}
+
+.analyst-presence-popover__header {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.analyst-presence-popover__header strong {
+  font-family: var(--font-data), monospace;
+  font-size: 0.875rem;
+}
+
+.analyst-presence-popover__header span {
+  color: var(--ink-muted);
+  font-size: 0.6875rem;
+}
+
+.analyst-presence-popover__list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.analyst-presence-popover__item {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.analyst-presence-popover__item:last-child {
+  border-bottom: 0;
+}
+
+.analyst-presence-popover__identity,
+.analyst-presence-popover__meta {
+  display: flex;
+  min-width: 0;
+}
+
+.analyst-presence-popover__identity {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.analyst-presence-popover__identity strong,
+.analyst-presence-popover__identity span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analyst-presence-popover__identity strong {
+  font-size: 0.75rem;
+}
+
+.analyst-presence-popover__identity span,
+.analyst-presence-popover__meta {
+  color: var(--ink-muted);
+  font-size: 0.625rem;
+}
+
+.analyst-presence-popover__meta {
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.analyst-presence-popover__item > a {
+  position: relative;
+  z-index: 241;
+  align-self: center;
+  color: var(--accent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.analyst-presence-popover__item > a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .opinion-source__badge {
   display: inline-flex;
   min-height: 20px;
@@ -776,7 +1030,6 @@ a {
   white-space: nowrap;
 }
 
-.analyst-presence__item--shay_boloor,
 .opinion-source__badge--shay_boloor {
   border-color: color-mix(in oklch, var(--accent) 32%, var(--border));
   background: var(--accent-soft);
@@ -2092,7 +2345,7 @@ a {
   }
 
   .ticker-table {
-    min-width: 1040px;
+    min-width: 1308px;
   }
 
   .ticker-table col.distribution-column {
@@ -2126,7 +2379,7 @@ a {
   }
 
   .ticker-table {
-    min-width: 900px;
+    min-width: 1116px;
   }
 
   .period-column,
@@ -2286,7 +2539,7 @@ a {
 
   .ticker-table tbody .ticker-row {
     display: grid;
-    min-height: 82px;
+    min-height: 96px;
     grid-template-areas:
       "watch ticker ticker ticker ticker total"
       "watch distribution sentiment stance change change";
@@ -2373,13 +2626,48 @@ a {
 
   .ticker-link__analysts {
     display: block;
-    max-width: 180px;
-    overflow: hidden;
-    color: var(--ink-muted);
-    font-size: 0.625rem;
-    font-weight: 400;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    position: relative;
+    z-index: 2;
+    width: min(100%, 220px);
+    min-width: 0;
+    margin-top: 3px;
+  }
+
+  .analyst-presence--mobile .analyst-presence__trigger {
+    height: auto;
+    min-height: 35px;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .analyst-presence--mobile .analyst-presence__chips {
+    width: auto;
+    flex: 0 1 auto;
+    gap: 3px;
+  }
+
+  .analyst-presence--mobile .analyst-presence__item {
+    flex: 0 0 auto;
+    padding-right: 3px;
+  }
+
+  .analyst-presence--mobile .analyst-presence__summary {
+    width: auto;
+    flex: 0 1 auto;
+    gap: 4px;
+    font-size: 0.5rem;
+  }
+
+  .analyst-presence-popover__item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px 12px;
+  }
+
+  .analyst-presence-popover__meta {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    white-space: normal;
   }
 
   .ticker-table tbody .sentiment-cell {
