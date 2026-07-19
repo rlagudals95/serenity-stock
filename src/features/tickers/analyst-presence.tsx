@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -50,10 +51,18 @@ export function AnalystPresence({
   });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const descriptionId = useId();
   const model = buildAnalystPresenceModel(
     analysts,
     variant === "desktop" ? 3 : 2,
   );
+  const visibleAnalystDescription = model.visible
+    .map(
+      (analyst) =>
+        `${analyst.name} · ${analystStanceLabels[analyst.latestStance]}`,
+    )
+    .join(", ");
+  const summaryDescription = `${visibleAnalystDescription}. 최근 관점: 긍정 ${model.counts.bullish}명, 부정 ${model.counts.bearish}명, 기타 ${model.counts.other}명. ${analystComparisonLabels[model.comparison]}.`;
 
   const positionPanel = useCallback((panel = panelRef.current) => {
     const trigger = triggerRef.current;
@@ -88,18 +97,32 @@ export function AnalystPresence({
           triggerRect.top - POPOVER_GAP - panelHeight,
         );
 
-    setPanelStyle({
+    const nextStyle: CSSProperties = {
       left,
       maxHeight: Math.max(0, viewportHeight - VIEWPORT_MARGIN * 2),
       top,
       width,
+    };
+    setPanelStyle((currentStyle) => {
+      if (
+        currentStyle.left === nextStyle.left &&
+        currentStyle.maxHeight === nextStyle.maxHeight &&
+        currentStyle.top === nextStyle.top &&
+        currentStyle.width === nextStyle.width
+      ) {
+        return currentStyle;
+      }
+      return nextStyle;
     });
   }, []);
 
   const setMeasuredPanel = useCallback(
     (panel: HTMLDivElement | null) => {
       panelRef.current = panel;
-      if (panel) positionPanel(panel);
+      if (panel) {
+        positionPanel(panel);
+        panel.focus();
+      }
     },
     [positionPanel],
   );
@@ -134,12 +157,20 @@ export function AnalystPresence({
     document.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("resize", handleViewportChange);
     window.addEventListener("scroll", handleViewportChange, true);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" || !panelRef.current
+        ? null
+        : new ResizeObserver(handleViewportChange);
+    if (resizeObserver && panelRef.current) {
+      resizeObserver.observe(panelRef.current);
+    }
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
+      resizeObserver?.disconnect();
     };
   }, [closeAndRestoreFocus, open, positionPanel]);
 
@@ -160,6 +191,7 @@ export function AnalystPresence({
       data-variant={variant}
     >
       <button
+        aria-describedby={descriptionId}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={`${ticker} 언급 분석가 ${model.all.length}명 보기`}
@@ -169,6 +201,9 @@ export function AnalystPresence({
         ref={triggerRef}
         type="button"
       >
+        <span className="sr-only" id={descriptionId}>
+          {summaryDescription}
+        </span>
         <span className="analyst-presence__chips">
           {model.visible.map((analyst) => (
             <span
@@ -223,14 +258,15 @@ export function AnalystPresence({
                 overflowY: "auto",
                 position: "fixed",
               }}
+              tabIndex={-1}
             >
               <header className="analyst-presence-popover__header">
                 <strong>{ticker}</strong>
                 <span>분석가 {model.all.length}명</span>
               </header>
-              <div className="analyst-presence-popover__list">
+              <ul className="analyst-presence-popover__list">
                 {model.all.map((analyst) => (
-                  <article
+                  <li
                     className="analyst-presence-popover__item"
                     key={analyst.key}
                   >
@@ -252,6 +288,7 @@ export function AnalystPresence({
                     </div>
                     {analyst.latestSourceUrl ? (
                       <a
+                        aria-label={`${analyst.name} 최근 원문`}
                         href={analyst.latestSourceUrl}
                         rel="noopener noreferrer"
                         target="_blank"
@@ -259,9 +296,9 @@ export function AnalystPresence({
                         최근 원문
                       </a>
                     ) : null}
-                  </article>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>,
             document.body,
           )
