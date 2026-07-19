@@ -88,7 +88,12 @@ export function AnalystPresence({
           triggerRect.top - POPOVER_GAP - panelHeight,
         );
 
-    setPanelStyle({ left, top, width });
+    setPanelStyle({
+      left,
+      maxHeight: Math.max(0, viewportHeight - VIEWPORT_MARGIN * 2),
+      top,
+      width,
+    });
   }, []);
 
   const setMeasuredPanel = useCallback(
@@ -215,6 +220,7 @@ export function AnalystPresence({
               style={{
                 ...panelStyle,
                 maxWidth: POPOVER_MAX_WIDTH,
+                overflowY: "auto",
                 position: "fixed",
               }}
             >

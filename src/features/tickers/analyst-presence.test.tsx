@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AnalystPresence } from "./analyst-presence";
 import type { AnalystSnapshot, Stance } from "./types";
@@ -136,6 +136,54 @@ describe("AnalystPresence", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("keeps a tall dialog scrollable inside a small viewport", () => {
+    const innerHeightDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "innerHeight",
+    );
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 320,
+    });
+    const geometry = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute("role") === "dialog") {
+          return new DOMRect(0, 0, 380, 600);
+        }
+        return new DOMRect(40, 250, 200, 30);
+      });
+
+    try {
+      render(
+        <AnalystPresence analysts={analysts} ticker="COHR" variant="desktop" />,
+      );
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "COHR 언급 분석가 4명 보기",
+        }),
+      );
+
+      const dialog = screen.getByRole("dialog", {
+        name: "COHR 언급 분석가",
+      });
+      expect(dialog).toHaveStyle({
+        maxHeight: "296px",
+        overflowY: "auto",
+        top: "12px",
+      });
+      expect(
+        Number.parseFloat(dialog.style.top) +
+          Number.parseFloat(dialog.style.maxHeight),
+      ).toBeLessThanOrEqual(window.innerHeight - 12);
+    } finally {
+      geometry.mockRestore();
+      if (innerHeightDescriptor) {
+        Object.defineProperty(window, "innerHeight", innerHeightDescriptor);
+      }
+    }
   });
 
   it("renders a non-interactive empty state", () => {
