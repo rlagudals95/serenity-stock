@@ -1,10 +1,10 @@
 import { getCumulativeSentiment } from "./query";
+import { compareAnalystSnapshots } from "./analyst-presence-model";
 import {
   getFixtureTickerDetail,
   tickerOverviewFixtures,
 } from "./fixtures";
 import type {
-  AnalystComparison,
   AnalystProfile,
   AnalystSnapshot,
   ChangeType,
@@ -388,23 +388,6 @@ function groupAnalysts(rows: AnalystSummaryViewRow[]) {
   return grouped;
 }
 
-function compareAnalysts(analysts: AnalystSnapshot[]): AnalystComparison {
-  if (analysts.length < 2) return "single_source";
-
-  const directional = analysts
-    .map((analyst) => analyst.latestStance)
-    .filter((value) => value === "bullish" || value === "bearish");
-  if (new Set(directional).size > 1) return "disagreement";
-  if (
-    analysts.every(
-      (analyst) => analyst.latestStance === analysts[0]?.latestStance,
-    )
-  ) {
-    return "agreement";
-  }
-  return "mixed";
-}
-
 export function buildSupabaseTickerDetail(
   rawOverview: OverviewViewRow,
   timeline: TimelineViewRow[],
@@ -420,7 +403,7 @@ export function buildSupabaseTickerDetail(
     analysts,
     threadCount: number(rawOverview.unique_threads),
     lastAnalysisAt: overview.lastMentionedAt,
-    analystComparison: compareAnalysts(analysts),
+    analystComparison: compareAnalystSnapshots(analysts),
     recentChange: {
       summary:
         first?.change_summary ??
