@@ -46,6 +46,7 @@ supabase/.branches/
 
 # Local agent artifacts
 .codex/
+.superpowers/
 docs/superpowers/
 
 # OS files
