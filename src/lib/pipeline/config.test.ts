@@ -33,6 +33,7 @@ describe("resolvePipelineConfig", () => {
         supabaseUrl: "https://serenity.supabase.co",
         supabaseSecretKey: "sb_secret_test",
         rettiwtApiKey: "rettiwt-session",
+        xPostProvider: "rettiwt",
         deepseekApiKey: "deepseek-token",
         deepseekModel: "deepseek-v4-flash",
         maxPosts: 500,
@@ -61,5 +62,31 @@ describe("resolvePipelineConfig", () => {
         ).toString("base64"),
       },
     });
+  });
+
+  it("defaults the X post provider to Rettiwt", () => {
+    const result = resolvePipelineConfig({
+      SUPABASE_URL: "https://serenity.supabase.co",
+      SUPABASE_SECRET_KEY: "sb_secret_test",
+      RETTIWT_API_KEY: "rettiwt-session",
+      DEEPSEEK_API_KEY: "deepseek-token",
+    });
+
+    expect(result).toMatchObject({
+      configured: true,
+      value: { xPostProvider: "rettiwt" },
+    });
+  });
+
+  it("rejects an unsupported X post provider", () => {
+    expect(() =>
+      resolvePipelineConfig({
+        SUPABASE_URL: "https://serenity.supabase.co",
+        SUPABASE_SECRET_KEY: "sb_secret_test",
+        RETTIWT_API_KEY: "rettiwt-session",
+        DEEPSEEK_API_KEY: "deepseek-token",
+        X_POST_PROVIDER: "unknown",
+      }),
+    ).toThrow("Unsupported X_POST_PROVIDER: unknown");
   });
 });

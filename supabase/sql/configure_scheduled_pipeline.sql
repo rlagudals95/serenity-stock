@@ -40,7 +40,7 @@ where jobname in ('serenity-ingest-x', 'serenity-analyze-posts');
 
 select cron.schedule(
   'serenity-ingest-x',
-  '*/15 * * * *',
+  '*/5 * * * *',
   $$
   select net.http_post(
     url := (
@@ -56,7 +56,7 @@ select cron.schedule(
         where name = 'serenity_cron_secret'
       )
     ),
-    body := '{}'::jsonb,
+    body := '{"mode":"scheduled"}'::jsonb,
     timeout_milliseconds := 140000
   );
   $$

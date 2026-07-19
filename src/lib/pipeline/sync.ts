@@ -9,9 +9,8 @@ import {
 } from "./analysis-worker";
 import type { PipelineConfig } from "./config";
 import {
-  createRettiwtClient,
-  fetchRettiwtPosts,
-  fetchRettiwtUser,
+  createXPostSource,
+  fetchXPosts,
 } from "./x";
 
 export interface SyncResult {
@@ -100,7 +99,10 @@ export async function syncTrackedAnalysts(
     throw new Error("No active analyst profiles are configured.");
   }
   const runId = crypto.randomUUID();
-  const rettiwt = createRettiwtClient(config.rettiwtApiKey);
+  const xSource = createXPostSource({
+    provider: config.xPostProvider,
+    apiKey: config.rettiwtApiKey,
+  });
   const result: SyncResult = {
     fetched: 0,
     inserted: 0,
@@ -116,7 +118,7 @@ export async function syncTrackedAnalysts(
     status: "running",
     counts: result,
     metadata: {
-      source: "rettiwt",
+      source: config.xPostProvider,
       sources: sources.map((source) => ({
         key: source.analyst_key,
         username: source.x_username,
@@ -137,8 +139,8 @@ export async function syncTrackedAnalysts(
       const isBackfill = cursor.storedCount < config.maxPosts;
       const user = cursor.userId
         ? { id: cursor.userId }
-        : await fetchRettiwtUser(rettiwt, source.x_username);
-      const fetchedPosts = await fetchRettiwtPosts(rettiwt, {
+        : await xSource.resolveUser(source.x_username);
+      const fetchedPosts = await fetchXPosts(xSource, {
         userId: user.id,
         username: source.x_username,
         sinceId: isBackfill ? undefined : cursor.sinceId,

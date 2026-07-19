@@ -29,6 +29,21 @@ describe("hosted pipeline invocation", () => {
     );
   });
 
+  it("marks hosted ingestion as a manual request", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ status: "completed" }), { status: 200 }),
+    );
+
+    await invokeScheduledFunction("ingest-x", config, fetcher);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://serenity.supabase.co/functions/v1/ingest-x",
+      expect.objectContaining({
+        body: JSON.stringify({ mode: "manual" }),
+      }),
+    );
+  });
+
   it("runs ingestion before analysis", async () => {
     const calls: string[] = [];
     const fetcher = vi.fn<typeof fetch>().mockImplementation(async (input) => {

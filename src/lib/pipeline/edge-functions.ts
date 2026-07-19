@@ -49,7 +49,9 @@ export async function invokeScheduledFunction(
         "Content-Type": "application/json",
         "x-serenity-cron-secret": config.cronSecret,
       },
-      body: "{}",
+      body: JSON.stringify(
+        functionName === "ingest-x" ? { mode: "manual" } : {},
+      ),
       signal: AbortSignal.timeout(140_000),
     },
   );

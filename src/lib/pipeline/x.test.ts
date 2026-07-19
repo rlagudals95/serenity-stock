@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  RettiwtSource,
+  XSourceAuthenticationError,
+  createXPostSource,
   extractTickerCandidates,
   fetchRettiwtPostPage,
-  fetchRettiwtPosts,
   fetchRettiwtUser,
+  fetchXPosts,
+  isRettiwtAuthenticationError,
   mapRettiwtTweet,
+  rettiwtDelayMs,
   type RettiwtClient,
   type RettiwtTweet,
 } from "./x";
@@ -58,6 +63,74 @@ describe("extractTickerCandidates", () => {
     expect(
       extractTickerCandidates("$COHR remains strong. Watching $AAOI and $COHR."),
     ).toEqual(["COHR", "AAOI"]);
+  });
+});
+
+describe("RettiwtSource", () => {
+  it("maps deterministic random values to a 750–1500 ms delay", () => {
+    expect(rettiwtDelayMs(() => 0)).toBe(750);
+    expect(rettiwtDelayMs(() => 0.5)).toBe(1125);
+    expect(rettiwtDelayMs(() => 0.999999)).toBe(1500);
+  });
+
+  it("creates the Rettiwt provider and rejects unsupported providers", () => {
+    const apiKey = Buffer.from(
+      "auth_token=auth;ct0=csrf;twid=u%3D123;",
+    ).toString("base64");
+    expect(
+      createXPostSource({
+        provider: "rettiwt",
+        apiKey,
+        random: () => 0,
+      }),
+    ).toBeInstanceOf(RettiwtSource);
+
+    expect(() =>
+      createXPostSource({
+        provider: "official",
+        apiKey,
+      }),
+    ).toThrow("Unsupported X post provider: official");
+  });
+
+  it("translates an invalid Rettiwt credential during source creation", () => {
+    expect(() =>
+      createXPostSource({
+        provider: "rettiwt",
+        apiKey: "not-a-rettiwt-key",
+      }),
+    ).toThrow(XSourceAuthenticationError);
+  });
+
+  it.each([
+    { status: 401 },
+    { status: 403 },
+    { status: 500, details: [{ code: 89, message: "Invalid token" }] },
+    { status: 500, message: "Invalid authentication data" },
+  ])("recognizes definite authentication failures: %o", (error) => {
+    expect(isRettiwtAuthenticationError(error)).toBe(true);
+  });
+
+  it.each([
+    { status: 429, message: "Too many requests" },
+    { status: 500, message: "Internal server error" },
+    { name: "TimeoutError", message: "timed out" },
+  ])("does not block on transient failures: %o", (error) => {
+    expect(isRettiwtAuthenticationError(error)).toBe(false);
+  });
+
+  it("translates an authentication failure and performs no second request", async () => {
+    const client = clientWithPages([]);
+    vi.mocked(client.user.details).mockRejectedValueOnce({
+      status: 401,
+      message: "Unauthorized",
+    });
+    const source = new RettiwtSource(client);
+
+    await expect(source.resolveUser("aleabitoreddit")).rejects.toBeInstanceOf(
+      XSourceAuthenticationError,
+    );
+    expect(client.user.details).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -217,8 +290,8 @@ describe("fetchRettiwtPostPage", () => {
   });
 });
 
-describe("fetchRettiwtPosts", () => {
-  it("paginates with Rettiwt cursors and removes duplicate IDs", async () => {
+describe("fetchXPosts", () => {
+  it("paginates through the provider and removes duplicate IDs", async () => {
     const client = clientWithPages([
       {
         list: [tweet("3"), tweet("2")],
@@ -229,7 +302,7 @@ describe("fetchRettiwtPosts", () => {
       },
     ]);
 
-    const posts = await fetchRettiwtPosts(client, {
+    const posts = await fetchXPosts(new RettiwtSource(client), {
       userId: "456",
       username: "aleabitoreddit",
       maxResults: 10,

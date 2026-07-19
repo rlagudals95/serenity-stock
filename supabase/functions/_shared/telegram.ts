@@ -67,6 +67,19 @@ export function formatIngestionFailure(summary: FailureSummary) {
   ].join("\n");
 }
 
+export function formatAuthenticationBlocked(summary: FailureSummary) {
+  return [
+    "🔴 X 인증 실패 · 수집 중단",
+    "",
+    `대상: ${summary.sourceKey ?? "확인 불가"}`,
+    `오류: ${singleLine(summary.error) || "알 수 없는 오류"}`,
+    `진행: 조회 ${summary.fetched}개 / 저장 ${summary.inserted}개 / ${summary.pages}페이지`,
+    "상태: 같은 인증정보로 재시도하지 않습니다.",
+    "조치: Supabase RETTIWT_API_KEY를 교체하세요.",
+    `시각: ${kstTimestamp(summary.occurredAt)} KST`,
+  ].join("\n");
+}
+
 export async function sendTelegramMessage(
   config: TelegramConfig,
   text: string,

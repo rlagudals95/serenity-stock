@@ -36,6 +36,7 @@ SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_REPLACE_ME
 SERENITY_CRON_SECRET=GENERATE_A_LONG_RANDOM_SECRET
 RETTIWT_API_KEY=REPLACE_ME
+X_POST_PROVIDER=rettiwt
 TELEGRAM_BOT_TOKEN=REPLACE_ME
 TELEGRAM_CHAT_ID=REPLACE_ME
 DEEPSEEK_API_KEY=REPLACE_ME
@@ -64,8 +65,21 @@ keys**에서 생성합니다. 이 값은 Next.js 서버에서만 읽으며 브�
 
 Telegram 값을 설정하면 신규 게시물이 저장된 성공 실행, 모든 수집 실패,
 실패 후 첫 정상 복구를 봇으로 알립니다. 신규 게시물이 없는 일반 정상 실행은
-메시지를 보내지 않으며, Telegram 전송 실패가 원문 수집을 실패시키지는
-않습니다.
+메시지를 보내지 않습니다. 알림은 DB outbox에 먼저 기록하며, Telegram 전송
+실패 시 5분, 15분, 이후 최대 60분 간격으로 Telegram만 다시 시도합니다.
+Telegram 장애가 X 재요청을 발생시키거나 원문 수집을 실패시키지는 않습니다.
+
+`X_POST_PROVIDER`는 현재 `rettiwt`만 지원합니다. 수집 코드는 공통
+`XPostSource` 계약을 사용하므로 공식 X API는 이후 별도 provider로 추가할 수
+있습니다. Rettiwt 요청은 750~1,500ms의 랜덤 지연 후 한 번만 실행합니다.
+
+예약 cron은 5분마다 수집 함수를 깨우지만 실제 X 조회는 DB가 선택한
+30·35·40·45분 간격으로만 실행합니다. Rettiwt 인증이 실패하면 같은
+credential로는 예약 실행과 수동 **동기화** 모두 X를 다시 호출하지 않습니다.
+이때 Telegram으로 수집 중단과 조치 방법을 알립니다. 복구하려면 Supabase의
+`RETTIWT_API_KEY` secret을 새 값으로 교체하세요. 다음 예약 실행 또는 수동
+동기화가 credential 지문 변경을 감지해 한 번 조회하고, 성공 시 복구 알림을
+보냅니다. 로그인이나 cookie 갱신은 자동화하지 않습니다.
 
 Steady-state 수집과 분석은 Supabase Edge Functions에서 실행됩니다. 앱 상단의
 **동기화** 버튼은 hosted `ingest-x`와 `analyze-posts` 함수를 순서대로 한 번
@@ -143,8 +157,9 @@ pnpm supabase functions deploy analyze-posts --use-api
 ```
 
 그 다음 `supabase/sql/configure_scheduled_pipeline.sql`의 Vault 값 두 개를
-설정해 SQL Editor에서 실행합니다. 수집과 분석은 각각 15분마다 실행되며,
-분석은 수집보다 2분 늦게 시작합니다. 중단할 때는
+설정해 SQL Editor에서 실행합니다. 수집 cron은 5분마다 스케줄 상태를
+확인하고 실제 X 조회는 30·35·40·45분 중 무작위 간격으로 실행합니다.
+분석은 기존처럼 15분마다 독립 실행됩니다. 중단할 때는
 `supabase/sql/remove_scheduled_pipeline.sql`을 실행합니다.
 
 `supabase/seed.sql`은 fixture와 대응하는 로컬 검증용 가짜 데이터이므로 실제

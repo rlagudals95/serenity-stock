@@ -4,9 +4,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { PipelineConfig } from "./config";
 import {
-  createRettiwtClient,
-  fetchRettiwtPostPage,
-  fetchRettiwtUser,
+  createXPostSource,
   type StoredPost,
 } from "./x";
 
@@ -77,7 +75,7 @@ function runMetadata(
 ) {
   return {
     mode: "historical_backfill",
-    source: "rettiwt",
+    source: config.xPostProvider,
     tracked_sources: sources.map((source) => ({
       key: source.analyst_key,
       username: source.x_username,
@@ -131,7 +129,10 @@ export async function backfillTrackedAnalystHistory(
   config: PipelineConfig,
 ): Promise<BackfillResult> {
   const client = backfillClient(config);
-  const rettiwt = createRettiwtClient(config.rettiwtApiKey);
+  const xSource = createXPostSource({
+    provider: config.xPostProvider,
+    apiKey: config.rettiwtApiKey,
+  });
   const { data: sourceData, error: sourceError } = await client
     .from("analyst_profiles")
     .select("analyst_key,x_username")
@@ -194,13 +195,13 @@ export async function backfillTrackedAnalystHistory(
       );
       const user = storedAuthorId
         ? { id: storedAuthorId }
-        : await fetchRettiwtUser(rettiwt, activeSource.x_username);
+        : await xSource.resolveUser(activeSource.x_username);
 
       while (
         sourceFetched < sourceBudget &&
         result.fetched < config.backfillMaxPosts
       ) {
-        const page = await fetchRettiwtPostPage(rettiwt, {
+        const page = await xSource.fetchPostPage({
           userId: user.id,
           username: activeSource.x_username,
           startTime,

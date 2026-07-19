@@ -59,13 +59,130 @@ export interface XPostPage {
   nextToken?: string;
 }
 
-export function createRettiwtClient(apiKey: string): RettiwtClient {
+export interface XResolvedUser {
+  id: string;
+  username: string;
+}
+
+export interface XPostPageInput {
+  userId: string;
+  username: string;
+  sinceId?: string;
+  startTime?: string;
+  endTime?: string;
+  paginationToken?: string;
+  pageSize?: number;
+}
+
+export interface XPostSource {
+  resolveUser(username: string): Promise<XResolvedUser>;
+  fetchPostPage(input: XPostPageInput): Promise<XPostPage>;
+}
+
+export class XSourceAuthenticationError extends Error {
+  override readonly name = "X_SOURCE_AUTHENTICATION_ERROR";
+
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+  }
+}
+
+const AUTHENTICATION_CODES = new Set([32, 64, 89, 99, 135, 215, 239, 326]);
+const AUTHENTICATION_MESSAGE =
+  /(failed to authenticate|invalid authentication data|invalid or expired token|could not authenticate|account.*(locked|suspended))/i;
+
+interface RettiwtErrorLike {
+  status?: unknown;
+  message?: unknown;
+  details?: unknown;
+}
+
+export function isRettiwtAuthenticationError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as RettiwtErrorLike;
+  if (candidate.status === 401 || candidate.status === 403) return true;
+  if (
+    typeof candidate.message === "string" &&
+    AUTHENTICATION_MESSAGE.test(candidate.message)
+  ) {
+    return true;
+  }
+  if (!Array.isArray(candidate.details)) return false;
+  return candidate.details.some((detail) => {
+    if (!detail || typeof detail !== "object") return false;
+    const item = detail as { code?: unknown; message?: unknown };
+    return (
+      (typeof item.code === "number" &&
+        AUTHENTICATION_CODES.has(item.code)) ||
+      (typeof item.message === "string" &&
+        AUTHENTICATION_MESSAGE.test(item.message))
+    );
+  });
+}
+
+function translateRettiwtError(error: unknown): never {
+  if (isRettiwtAuthenticationError(error)) {
+    throw new XSourceAuthenticationError(
+      "Rettiwt authentication failed; X collection is blocked until the credential changes.",
+      { cause: error },
+    );
+  }
+  throw error;
+}
+
+export function rettiwtDelayMs(random: () => number = Math.random) {
+  return Math.min(1500, 750 + Math.floor(random() * 751));
+}
+
+export function createRettiwtClient(
+  apiKey: string,
+  random: () => number = Math.random,
+): RettiwtClient {
   return new Rettiwt({
     apiKey,
-    delay: 250,
-    maxRetries: 5,
+    delay: () => rettiwtDelayMs(random),
+    maxRetries: 1,
     timeout: 20_000,
   }) as unknown as RettiwtClient;
+}
+
+export class RettiwtSource implements XPostSource {
+  constructor(private readonly client: RettiwtClient) {}
+
+  async resolveUser(username: string) {
+    try {
+      return await fetchRettiwtUser(this.client, username);
+    } catch (error) {
+      translateRettiwtError(error);
+    }
+  }
+
+  async fetchPostPage(input: XPostPageInput) {
+    try {
+      return await fetchRettiwtPostPage(this.client, input);
+    } catch (error) {
+      translateRettiwtError(error);
+    }
+  }
+}
+
+export function createXPostSource({
+  provider,
+  apiKey,
+  random,
+}: {
+  provider: string;
+  apiKey: string;
+  random?: () => number;
+}): XPostSource {
+  if (provider !== "rettiwt") {
+    throw new Error(`Unsupported X post provider: ${provider}`);
+  }
+  try {
+    return new RettiwtSource(createRettiwtClient(apiKey, random));
+  } catch (error) {
+    translateRettiwtError(error);
+  }
 }
 
 export function extractTickerCandidates(text: string) {
@@ -160,15 +277,7 @@ export async function fetchRettiwtPostPage(
     endTime,
     paginationToken,
     pageSize = 100,
-  }: {
-    userId: string;
-    username: string;
-    sinceId?: string;
-    startTime?: string;
-    endTime?: string;
-    paginationToken?: string;
-    pageSize?: number;
-  },
+  }: XPostPageInput,
 ): Promise<XPostPage> {
   const count = Math.min(20, Math.max(1, pageSize));
   const page = await client.user.replies(userId, count, paginationToken);
@@ -209,8 +318,17 @@ export async function fetchRettiwtPostPage(
   };
 }
 
-export async function fetchRettiwtPosts(
-  client: RettiwtClient,
+export interface XPostsInput {
+  userId: string;
+  username: string;
+  sinceId?: string;
+  startTime?: string;
+  endTime?: string;
+  maxResults: number;
+}
+
+export async function fetchXPosts(
+  source: XPostSource,
   {
     userId,
     username,
@@ -218,14 +336,7 @@ export async function fetchRettiwtPosts(
     startTime,
     endTime,
     maxResults,
-  }: {
-    userId: string;
-    username: string;
-    sinceId?: string;
-    startTime?: string;
-    endTime?: string;
-    maxResults: number;
-  },
+  }: XPostsInput,
 ) {
   const postsById = new Map<string, StoredPost>();
   const seenPaginationTokens = new Set<string>();
@@ -233,7 +344,7 @@ export async function fetchRettiwtPosts(
 
   while (postsById.size < maxResults) {
     const remaining = maxResults - postsById.size;
-    const page = await fetchRettiwtPostPage(client, {
+    const page = await source.fetchPostPage({
       userId,
       username,
       sinceId,
@@ -256,4 +367,11 @@ export async function fetchRettiwtPosts(
   }
 
   return [...postsById.values()].slice(0, maxResults);
+}
+
+export function fetchRettiwtPosts(
+  client: RettiwtClient,
+  input: XPostsInput,
+) {
+  return fetchXPosts(new RettiwtSource(client), input);
 }

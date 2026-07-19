@@ -1,6 +1,6 @@
 begin;
 
-select plan(2);
+select plan(3);
 
 do $$
 declare
@@ -263,6 +263,107 @@ begin
 end;
 $$;
 
+do $$
+declare
+  schedule_claim record;
+  fingerprint_a text := repeat('a', 64);
+  fingerprint_b text := repeat('b', 64);
+begin
+  select *
+  into schedule_claim
+  from public.claim_pipeline_schedule(
+    'test-x-ingestion',
+    'scheduled',
+    fingerprint_a
+  );
+
+  if schedule_claim.decision <> 'due' then
+    raise exception 'first schedule claim must be due';
+  end if;
+
+  if schedule_claim.delay_minutes not in (30, 35, 40, 45) then
+    raise exception 'schedule delay must be a supported jitter bucket';
+  end if;
+
+  select *
+  into schedule_claim
+  from public.claim_pipeline_schedule(
+    'test-x-ingestion',
+    'scheduled',
+    fingerprint_a
+  );
+  if schedule_claim.decision <> 'not_due' then
+    raise exception 'early scheduled claim must skip';
+  end if;
+
+  perform public.block_pipeline_auth(
+    'test-x-ingestion',
+    fingerprint_a,
+    'test-x-ingestion:auth:' || fingerprint_a,
+    'Authentication failed'
+  );
+
+  select *
+  into schedule_claim
+  from public.claim_pipeline_schedule(
+    'test-x-ingestion',
+    'manual',
+    fingerprint_a
+  );
+  if schedule_claim.decision <> 'auth_blocked' then
+    raise exception 'same fingerprint must remain blocked';
+  end if;
+
+  select *
+  into schedule_claim
+  from public.claim_pipeline_schedule(
+    'test-x-ingestion',
+    'manual',
+    fingerprint_b
+  );
+  if schedule_claim.decision <> 'credential_changed' then
+    raise exception 'new fingerprint must reopen the circuit';
+  end if;
+
+  perform public.block_pipeline_auth(
+    'test-x-ingestion',
+    fingerprint_b,
+    'test-x-ingestion:auth:' || fingerprint_b,
+    'Authentication failed'
+  );
+  perform public.block_pipeline_auth(
+    'test-x-ingestion',
+    fingerprint_b,
+    'test-x-ingestion:auth:' || fingerprint_b,
+    'Authentication failed'
+  );
+
+  if (
+    select count(*)
+    from public.pipeline_alerts
+    where event_key = 'test-x-ingestion:auth:' || fingerprint_b
+  ) <> 1 then
+    raise exception 'authentication event must be unique';
+  end if;
+
+  if has_table_privilege('anon', 'public.pipeline_schedules', 'select')
+    or has_table_privilege(
+      'authenticated',
+      'public.pipeline_schedules',
+      'select'
+    )
+    or has_table_privilege('anon', 'public.pipeline_alerts', 'select')
+    or has_table_privilege(
+      'authenticated',
+      'public.pipeline_alerts',
+      'select'
+    ) then
+    raise exception 'browser roles must not read pipeline control tables';
+  end if;
+end;
+$$;
+
+select pass('X ingestion schedule, circuit breaker, and outbox are durable');
 select pass('analyst post-type policies control analysis job enqueueing');
 select * from finish();
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  formatAuthenticationBlocked,
   formatIngestionFailure,
   formatIngestionSuccess,
   sendTelegramMessage,
@@ -49,6 +50,22 @@ describe("Telegram ingestion notifications", () => {
     expect(message).toContain("🔴 X 수집 실패");
     expect(message).toContain("대상: x:stocksavvyshay");
     expect(message).toContain("오류: Rettiwt authentication failed");
+  });
+
+  it("states that authentication failure stops X collection", () => {
+    const message = formatAuthenticationBlocked({
+      sourceKey: "x:stocksavvyshay",
+      error: "Rettiwt authentication failed",
+      fetched: 0,
+      inserted: 0,
+      pages: 1,
+      occurredAt: "2026-07-19T12:04:48.000Z",
+    });
+
+    expect(message).toContain("🔴 X 인증 실패 · 수집 중단");
+    expect(message).toContain("같은 인증정보로 재시도하지 않습니다");
+    expect(message).toContain("Supabase RETTIWT_API_KEY를 교체");
+    expect(message).not.toMatch(/auth_token|ct0|twid|fingerprint/i);
   });
 
   it("posts JSON through sendMessage and sanitizes Telegram errors", async () => {

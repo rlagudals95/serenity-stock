@@ -3,22 +3,35 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isCronAuthorized } from "../_shared/auth.ts";
 import {
   acquireLease,
+  blockPipelineAuthentication,
+  claimPipelineSchedule,
   createServiceClient,
+  enqueuePipelineAlert,
   finishRun,
+  listDuePipelineAlerts,
+  markPipelineAlertSent,
   releaseLease,
+  reschedulePipelineAlert,
   startRun,
   type RunCounts,
 } from "../_shared/database.ts";
 import { errorDetails, jsonResponse } from "../_shared/http.ts";
 import {
-  createRettiwtClient,
-  fetchRettiwtPostPage,
-  fetchRettiwtUser,
+  createXPostSource,
   nextCursorState,
-  type RettiwtClient,
+  XSourceAuthenticationError,
+  type XPostSource,
   type StoredPost,
 } from "../_shared/x.ts";
 import {
+  authenticationAlertEventKey,
+  credentialFingerprint,
+  parseIngestionMode,
+  runAlertEventKey,
+  shouldContactX,
+} from "../_shared/ingestion-control.ts";
+import {
+  formatAuthenticationBlocked,
   formatIngestionFailure,
   formatIngestionSuccess,
   sendTelegramMessage,
@@ -76,15 +89,34 @@ function telegramConfig(): TelegramConfig | undefined {
   return { botToken, chatId };
 }
 
-async function notifyTelegram(
+async function drainTelegramAlerts(
+  client: SupabaseClient,
   config: TelegramConfig | undefined,
-  message: string,
 ) {
   if (!config) return;
+  let alerts;
   try {
-    await sendTelegramMessage(config, message);
+    alerts = await listDuePipelineAlerts(client);
   } catch (error) {
-    console.error("Telegram notification failed", errorDetails(error));
+    console.error("Telegram alert lookup failed", errorDetails(error));
+    return;
+  }
+
+  for (const alert of alerts) {
+    try {
+      await sendTelegramMessage(config, alert.message);
+      await markPipelineAlertSent(client, alert.id);
+    } catch (error) {
+      console.error("Telegram notification failed", errorDetails(error));
+      try {
+        await reschedulePipelineAlert(client, alert, error);
+      } catch (rescheduleError) {
+        console.error(
+          "Telegram alert reschedule failed",
+          errorDetails(rescheduleError),
+        );
+      }
+    }
   }
 }
 
@@ -92,7 +124,7 @@ async function loadOrCreateCursor(
   client: SupabaseClient,
   sourceKey: string,
   username: string,
-  rettiwt: RettiwtClient,
+  xSource: XPostSource,
 ): Promise<IngestionCursor> {
   const { data, error } = await client
     .from("ingestion_cursors")
@@ -114,7 +146,7 @@ async function loadOrCreateCursor(
   if (latestError) {
     throw new Error(`Initial cursor lookup failed: ${latestError.message}`);
   }
-  const user = await fetchRettiwtUser(rettiwt, username);
+  const user = await xSource.resolveUser(username);
 
   const initial: IngestionCursor = {
     source_key: sourceKey,
@@ -176,6 +208,11 @@ Deno.serve(async (request) => {
   const supabaseUrl = requiredEnvironment("SUPABASE_URL");
   const serviceRoleKey = requiredEnvironment("SUPABASE_SERVICE_ROLE_KEY");
   const rettiwtApiKey = requiredEnvironment("RETTIWT_API_KEY");
+  const provider = Deno.env.get("X_POST_PROVIDER")?.trim() || "rettiwt";
+  const mode = parseIngestionMode(
+    await request.json().catch(() => ({})),
+  );
+  const fingerprint = await credentialFingerprint(rettiwtApiKey);
   const telegram = telegramConfig();
   const maxPosts = boundedInteger(
     Deno.env.get("SERENITY_INGEST_MAX_POSTS"),
@@ -190,7 +227,6 @@ Deno.serve(async (request) => {
     serviceRoleKey,
     "serenity-edge-ingest",
   );
-  const rettiwt = createRettiwtClient(rettiwtApiKey);
 
   let hasLease = false;
   let runId: string | undefined;
@@ -210,6 +246,28 @@ Deno.serve(async (request) => {
       return jsonResponse({ status: "skipped", reason: "lease_held", counts });
     }
 
+    const schedule = await claimPipelineSchedule(
+      client,
+      jobName,
+      mode,
+      fingerprint,
+    );
+    await drainTelegramAlerts(client, telegram);
+    if (!shouldContactX(schedule.decision)) {
+      return jsonResponse({
+        status: "skipped",
+        reason: schedule.decision,
+        nextRunAt: schedule.nextRunAt,
+        counts,
+      });
+    }
+
+    recoveredFromFailure = schedule.decision === "credential_changed";
+    const xSource = createXPostSource({
+      provider,
+      apiKey: rettiwtApiKey,
+    });
+
     const { data: sourceData, error: sourceError } = await client
       .from("analyst_profiles")
       .select("analyst_key,x_username")
@@ -224,7 +282,8 @@ Deno.serve(async (request) => {
     }
 
     runId = await startRun(client, "ingest_x_posts", counts, {
-      source: "rettiwt",
+      source: provider,
+      mode,
       sources: sources.map((source) => ({
         key: source.analyst_key,
         username: source.x_username,
@@ -232,6 +291,7 @@ Deno.serve(async (request) => {
       max_posts: maxPosts,
       runtime: "supabase-edge",
       author_filter: "tweet_by_user_id",
+      schedule_delay_minutes: schedule.delayMinutes,
     });
     for (const source of sources) {
       const sourceKey = `x:${source.x_username.toLowerCase()}`;
@@ -240,7 +300,7 @@ Deno.serve(async (request) => {
         client,
         sourceKey,
         source.x_username,
-        rettiwt,
+        xSource,
       );
       if (cursor.last_error !== null) recoveredFromFailure = true;
       const bootstrap =
@@ -261,7 +321,7 @@ Deno.serve(async (request) => {
         }
         if (paginationToken) seenTokens.add(paginationToken);
 
-        const page = await fetchRettiwtPostPage(rettiwt, {
+        const page = await xSource.fetchPostPage({
           userId: cursor.user_id,
           username: source.x_username,
           sinceId: sinceId ?? undefined,
@@ -320,37 +380,92 @@ Deno.serve(async (request) => {
 
     await finishRun(client, runId, "completed", counts);
     if (counts.inserted > 0 || recoveredFromFailure) {
-      await notifyTelegram(
-        telegram,
-        formatIngestionSuccess({
-          ...counts,
-          occurredAt: new Date().toISOString(),
-          recovered: recoveredFromFailure,
-        }),
-      );
+      const message = formatIngestionSuccess({
+        ...counts,
+        occurredAt: new Date().toISOString(),
+        recovered: recoveredFromFailure,
+      });
+      try {
+        await enqueuePipelineAlert(client, {
+          eventKey: runAlertEventKey(jobName, runId),
+          kind: recoveredFromFailure
+            ? "ingestion_recovery"
+            : "ingestion_success",
+          message,
+        });
+      } catch (alertError) {
+        console.error(
+          "Pipeline alert enqueue failed",
+          errorDetails(alertError),
+        );
+      }
+      await drainTelegramAlerts(client, telegram);
     }
     return jsonResponse({ status: "completed", counts });
   } catch (error) {
+    const details = errorDetails(error);
     if (runId) await finishRun(client, runId, "failed", counts, error);
     if (activeSourceKey) {
       await client
         .from("ingestion_cursors")
-        .update({ last_error: errorDetails(error) })
+        .update({ last_error: details })
         .eq("source_key", activeSourceKey);
     }
-    console.error("ingest-x failed", errorDetails(error));
-    await notifyTelegram(
-      telegram,
-      formatIngestionFailure({
+
+    console.error("ingest-x failed", details);
+    if (error instanceof XSourceAuthenticationError) {
+      const message = formatAuthenticationBlocked({
         sourceKey: activeSourceKey,
-        error: errorDetails(error).message,
+        error: details.message,
         fetched: counts.fetched,
         inserted: counts.inserted,
         pages: counts.pages,
         occurredAt: new Date().toISOString(),
-      }),
-    );
-    return jsonResponse({ error: errorDetails(error), counts }, 500);
+      });
+      await blockPipelineAuthentication(client, {
+        jobName,
+        credentialFingerprint: fingerprint,
+        eventKey: authenticationAlertEventKey(jobName, fingerprint),
+        message,
+      });
+      await drainTelegramAlerts(client, telegram);
+      return jsonResponse(
+        {
+          error: {
+            code: "x_auth_blocked",
+            message:
+              "X authentication failed; collection is blocked until the credential changes.",
+          },
+          counts,
+        },
+        503,
+      );
+    }
+
+    try {
+      await enqueuePipelineAlert(client, {
+        eventKey: runAlertEventKey(
+          jobName,
+          runId ?? crypto.randomUUID(),
+        ),
+        kind: "ingestion_failure",
+        message: formatIngestionFailure({
+          sourceKey: activeSourceKey,
+          error: details.message,
+          fetched: counts.fetched,
+          inserted: counts.inserted,
+          pages: counts.pages,
+          occurredAt: new Date().toISOString(),
+        }),
+      });
+    } catch (alertError) {
+      console.error(
+        "Pipeline alert enqueue failed",
+        errorDetails(alertError),
+      );
+    }
+    await drainTelegramAlerts(client, telegram);
+    return jsonResponse({ error: details, counts }, 500);
   } finally {
     if (hasLease) await releaseLease(client, jobName, ownerId);
   }

@@ -3,13 +3,30 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { isCronAuthorized } from "../../../supabase/functions/_shared/auth";
 import { parseDeepSeekContent } from "../../../supabase/functions/_shared/deepseek";
 import {
+  RettiwtSource,
+  XSourceAuthenticationError,
+  createXPostSource,
   chooseNewestPostId,
   fetchRettiwtPostPage,
   fetchRettiwtUser,
   mapRettiwtTweet,
   nextCursorState,
+  rettiwtDelayMs,
   type RettiwtClient,
 } from "../../../supabase/functions/_shared/x";
+import {
+  alertDueCutoff,
+  alertRetryMinutes,
+  authenticationAlertEventKey,
+  credentialFingerprint,
+  parseIngestionMode,
+  runAlertEventKey,
+  shouldContactX,
+} from "../../../supabase/functions/_shared/ingestion-control";
+import {
+  normalizeScheduleClaim,
+  type ScheduleClaim,
+} from "../../../supabase/functions/_shared/database";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -29,6 +46,104 @@ describe("Edge Function shared helpers", () => {
   it("strips a markdown JSON fence from DeepSeek output", () => {
     expect(parseDeepSeekContent("```json\n{\"relevance\":\"irrelevant\"}\n```"))
       .toEqual({ relevance: "irrelevant" });
+  });
+
+  it("parses scheduled and manual ingestion modes", () => {
+    expect(parseIngestionMode({ mode: "scheduled" })).toBe("scheduled");
+    expect(parseIngestionMode({ mode: "manual" })).toBe("manual");
+    expect(parseIngestionMode({})).toBe("manual");
+    expect(() => parseIngestionMode({ mode: "other" })).toThrow(
+      "Unsupported ingestion mode: other",
+    );
+  });
+
+  it("uses capped Telegram retry delays", () => {
+    expect([0, 1, 2, 3, 10].map(alertRetryMinutes)).toEqual([
+      5, 15, 60, 60, 60,
+    ]);
+  });
+
+  it("allows a small clock skew when claiming due Telegram alerts", () => {
+    expect(alertDueCutoff(Date.parse("2026-07-19T14:15:15.000Z"))).toBe(
+      "2026-07-19T14:15:20.000Z",
+    );
+  });
+
+  it("hashes credentials without returning the credential", async () => {
+    const fingerprint = await credentialFingerprint("secret-cookie-value");
+    expect(fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(fingerprint).not.toContain("secret-cookie-value");
+  });
+
+  it("builds stable alert event keys", () => {
+    expect(authenticationAlertEventKey("ingest-x", "abc")).toBe(
+      "ingest-x:auth:abc",
+    );
+    expect(runAlertEventKey("ingest-x", "run-1")).toBe(
+      "ingest-x:run:run-1",
+    );
+  });
+
+  it("contacts X only for due or changed credentials", () => {
+    expect(shouldContactX("due")).toBe(true);
+    expect(shouldContactX("credential_changed")).toBe(true);
+    expect(shouldContactX("not_due")).toBe(false);
+    expect(shouldContactX("auth_blocked")).toBe(false);
+  });
+
+  it("normalizes the single-row schedule RPC response", () => {
+    expect(
+      normalizeScheduleClaim([
+        {
+          decision: "not_due",
+          next_run_at: "2026-07-19T13:00:00.000Z",
+          delay_minutes: null,
+        },
+      ]),
+    ).toEqual({
+      decision: "not_due",
+      nextRunAt: "2026-07-19T13:00:00.000Z",
+      delayMinutes: null,
+    } satisfies ScheduleClaim);
+  });
+
+  it("rejects an invalid schedule decision", () => {
+    expect(() =>
+      normalizeScheduleClaim([{ decision: "unknown" }]),
+    ).toThrow("Invalid pipeline schedule claim response");
+  });
+
+  it("provides the same Rettiwt source boundary in Edge", async () => {
+    const apiKey = Buffer.from(
+      "auth_token=auth;ct0=csrf;twid=u%3D123;",
+    ).toString("base64");
+    expect(rettiwtDelayMs(() => 0)).toBe(750);
+    expect(
+      createXPostSource({
+        provider: "rettiwt",
+        apiKey,
+        random: () => 0,
+      }),
+    ).toBeInstanceOf(RettiwtSource);
+
+    const client: RettiwtClient = {
+      user: {
+        details: vi.fn().mockRejectedValue({ status: 401 }),
+        replies: vi.fn(),
+      },
+    };
+    await expect(
+      new RettiwtSource(client).resolveUser("test"),
+    ).rejects.toBeInstanceOf(XSourceAuthenticationError);
+  });
+
+  it("translates invalid Rettiwt credentials during Edge source creation", () => {
+    expect(() =>
+      createXPostSource({
+        provider: "rettiwt",
+        apiKey: "not-a-rettiwt-key",
+      }),
+    ).toThrow(XSourceAuthenticationError);
   });
 
   it("maps long-form X note text and quote metadata", () => {

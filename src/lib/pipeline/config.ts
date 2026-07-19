@@ -1,9 +1,12 @@
 type Environment = Record<string, string | undefined>;
 
+export type XPostProvider = "rettiwt";
+
 export interface PipelineConfig {
   supabaseUrl: string;
   supabaseSecretKey: string;
   rettiwtApiKey: string;
+  xPostProvider: XPostProvider;
   deepseekApiKey: string;
   deepseekModel: string;
   maxPosts: number;
@@ -32,6 +35,14 @@ function rettiwtApiKey(environment: Environment) {
   return Buffer.from(
     `auth_token=${authToken};ct0=${ct0};twid=${twid};`,
   ).toString("base64");
+}
+
+function xPostProvider(input: string | undefined): XPostProvider {
+  const provider = value(input) ?? "rettiwt";
+  if (provider !== "rettiwt") {
+    throw new Error(`Unsupported X_POST_PROVIDER: ${provider}`);
+  }
+  return provider;
 }
 
 function boundedInteger(
@@ -79,6 +90,7 @@ export function resolvePipelineConfig(
       supabaseUrl,
       supabaseSecretKey,
       rettiwtApiKey: resolvedRettiwtApiKey,
+      xPostProvider: xPostProvider(environment.X_POST_PROVIDER),
       deepseekApiKey,
       deepseekModel:
         value(environment.DEEPSEEK_MODEL) ?? "deepseek-v4-flash",
