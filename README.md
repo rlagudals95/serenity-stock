@@ -118,8 +118,8 @@ pnpm supabase functions deploy analyze-posts --use-api
 ```
 
 그 다음 `supabase/sql/configure_scheduled_pipeline.sql`의 Vault 값 두 개를
-설정해 SQL Editor에서 실행합니다. 수집은 15분마다, 분석은 5분마다
-2분 offset으로 실행됩니다. 중단할 때는
+설정해 SQL Editor에서 실행합니다. 수집과 분석은 각각 15분마다 실행되며,
+분석은 수집보다 2분 늦게 시작합니다. 중단할 때는
 `supabase/sql/remove_scheduled_pipeline.sql`을 실행합니다.
 
 `supabase/seed.sql`은 fixture와 대응하는 로컬 검증용 가짜 데이터이므로 실제

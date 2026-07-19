@@ -64,7 +64,7 @@ select cron.schedule(
 
 select cron.schedule(
   'serenity-analyze-posts',
-  '2-59/5 * * * *',
+  '2-59/15 * * * *',
   $$
   select net.http_post(
     url := (

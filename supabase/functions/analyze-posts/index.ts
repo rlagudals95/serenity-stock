@@ -279,7 +279,7 @@ Deno.serve(async (request) => {
             message: error instanceof Error ? error.message : String(error),
             retryable: job.attempts < 3,
           },
-          p_next_available_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+          p_next_available_at: new Date(Date.now() + 15 * 60_000).toISOString(),
         });
         if (failError) {
           throw new Error(
