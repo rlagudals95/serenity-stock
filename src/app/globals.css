@@ -554,7 +554,7 @@ a {
 
 .ticker-table {
   width: 100%;
-  min-width: 1328px;
+  min-width: 1360px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -757,7 +757,7 @@ a {
 
 .analyst-presence {
   position: relative;
-  z-index: 20;
+  z-index: 2;
   width: 100%;
   min-width: 0;
 }
@@ -2345,7 +2345,7 @@ a {
   }
 
   .ticker-table {
-    min-width: 1308px;
+    min-width: 1292px;
   }
 
   .ticker-table col.distribution-column {
@@ -2379,7 +2379,7 @@ a {
   }
 
   .ticker-table {
-    min-width: 1116px;
+    min-width: 1100px;
   }
 
   .period-column,
