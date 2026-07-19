@@ -163,6 +163,58 @@ describe("AnalystPresence", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("closes a desktop dialog when its trigger breakpoint becomes inactive", () => {
+    const innerWidthDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "innerWidth",
+    );
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1000,
+    });
+
+    try {
+      render(
+        <AnalystPresence analysts={analysts} ticker="COHR" variant="desktop" />,
+      );
+      const trigger = screen.getByRole("button", {
+        name: "COHR 언급 분석가 4명 보기",
+      });
+      fireEvent.click(trigger);
+      expect(screen.getByRole("dialog")).toHaveFocus();
+
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: 767,
+      });
+      fireEvent.resize(window);
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+      expect(trigger).not.toHaveFocus();
+
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: 1000,
+      });
+      fireEvent.resize(window);
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(trigger);
+      expect(
+        screen.getByRole("dialog", {
+          name: "COHR 언급 분석가",
+        }),
+      ).toHaveFocus();
+    } finally {
+      if (innerWidthDescriptor) {
+        Object.defineProperty(window, "innerWidth", innerWidthDescriptor);
+      }
+    }
+  });
+
   it("keeps a tall dialog scrollable inside a small viewport", () => {
     const innerHeightDescriptor = Object.getOwnPropertyDescriptor(
       window,
@@ -195,16 +247,85 @@ describe("AnalystPresence", () => {
         name: "COHR 언급 분석가",
       });
       expect(dialog).toHaveStyle({
-        maxHeight: "296px",
+        maxHeight: "230px",
         overflowY: "auto",
         top: "12px",
       });
       expect(
         Number.parseFloat(dialog.style.top) +
           Number.parseFloat(dialog.style.maxHeight),
-      ).toBeLessThanOrEqual(window.innerHeight - 12);
+      ).toBeLessThanOrEqual(250 - 8);
     } finally {
       geometry.mockRestore();
+      if (innerHeightDescriptor) {
+        Object.defineProperty(window, "innerHeight", innerHeightDescriptor);
+      }
+    }
+  });
+
+  it("keeps a long analyst list on one side of its trigger", () => {
+    const innerWidthDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "innerWidth",
+    );
+    const innerHeightDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "innerHeight",
+    );
+    Object.defineProperties(window, {
+      innerHeight: { configurable: true, value: 1000 },
+      innerWidth: { configurable: true, value: 1000 },
+    });
+    const manyAnalysts = Array.from({ length: 15 }, (_, index) =>
+      snapshot(
+        `Analyst ${index + 1}`,
+        `analyst_${index + 1}`,
+        index % 2 === 0 ? "bullish" : "bearish",
+        new Date(Date.UTC(2026, 6, 18 - index)).toISOString(),
+        15 - index,
+      ),
+    );
+    const triggerTop = 490;
+    const geometry = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute("role") === "dialog") {
+          return new DOMRect(0, 0, 380, 976);
+        }
+        return new DOMRect(310, triggerTop, 200, 40);
+      });
+
+    try {
+      render(
+        <AnalystPresence
+          analysts={manyAnalysts}
+          ticker="COHR"
+          variant="desktop"
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "COHR 언급 분석가 15명 보기",
+        }),
+      );
+
+      const dialog = screen.getByRole("dialog", {
+        name: "COHR 언급 분석가",
+      });
+      expect(within(dialog).getAllByRole("listitem")).toHaveLength(15);
+      expect(dialog).toHaveStyle({
+        maxHeight: "470px",
+        top: "12px",
+      });
+      expect(
+        Number.parseFloat(dialog.style.top) +
+          Number.parseFloat(dialog.style.maxHeight),
+      ).toBeLessThanOrEqual(triggerTop - 8);
+    } finally {
+      geometry.mockRestore();
+      if (innerWidthDescriptor) {
+        Object.defineProperty(window, "innerWidth", innerWidthDescriptor);
+      }
       if (innerHeightDescriptor) {
         Object.defineProperty(window, "innerHeight", innerHeightDescriptor);
       }
@@ -261,7 +382,11 @@ describe("AnalystPresence", () => {
       const dialog = screen.getByRole("dialog", {
         name: "COHR 언급 분석가",
       });
-      expect(dialog).toHaveStyle({ left: "608px", top: "538px" });
+      expect(dialog).toHaveStyle({
+        left: "608px",
+        maxHeight: "150px",
+        top: "538px",
+      });
       expect(observe).toHaveBeenCalledWith(dialog);
 
       act(() => {
@@ -269,7 +394,11 @@ describe("AnalystPresence", () => {
         resizeCallback?.([], {} as ResizeObserver);
       });
 
-      expect(dialog).toHaveStyle({ left: "608px", top: "232px" });
+      expect(dialog).toHaveStyle({
+        left: "608px",
+        maxHeight: "480px",
+        top: "232px",
+      });
       expect(
         Number.parseFloat(dialog.style.top) + panelHeight,
       ).toBeLessThanOrEqual(window.innerHeight - 12);

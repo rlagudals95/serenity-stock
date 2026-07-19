@@ -29,6 +29,7 @@ interface AnalystPresenceProps {
 const VIEWPORT_MARGIN = 12;
 const POPOVER_GAP = 8;
 const POPOVER_MAX_WIDTH = 380;
+const MOBILE_MAX_WIDTH = 767;
 
 const stanceSignals = {
   bullish: "↑",
@@ -37,6 +38,15 @@ const stanceSignals = {
   neutral: "−",
   unknown: "−",
 } as const;
+
+function isVariantActive(
+  variant: AnalystPresenceProps["variant"],
+  viewportWidth: number,
+) {
+  return variant === "mobile"
+    ? viewportWidth <= MOBILE_MAX_WIDTH
+    : viewportWidth > MOBILE_MAX_WIDTH;
+}
 
 export function AnalystPresence({
   analysts,
@@ -86,7 +96,9 @@ export function AnalystPresence({
       Math.max(0, viewportWidth - VIEWPORT_MARGIN * 2),
     );
     const triggerRect = trigger.getBoundingClientRect();
-    const panelHeight = panel?.getBoundingClientRect().height ?? 0;
+    const panelHeight = panel
+      ? Math.max(panel.getBoundingClientRect().height, panel.scrollHeight)
+      : 0;
     const maximumLeft = Math.max(
       VIEWPORT_MARGIN,
       viewportWidth - width - VIEWPORT_MARGIN,
@@ -99,18 +111,29 @@ export function AnalystPresence({
       VIEWPORT_MARGIN,
       triggerRect.bottom + POPOVER_GAP,
     );
-    const fitsBelow =
-      belowTop + panelHeight <= viewportHeight - VIEWPORT_MARGIN;
-    const top = fitsBelow
+    const availableBelow = Math.max(
+      0,
+      viewportHeight - VIEWPORT_MARGIN - belowTop,
+    );
+    const availableAbove = Math.max(
+      0,
+      triggerRect.top - POPOVER_GAP - VIEWPORT_MARGIN,
+    );
+    const placeBelow =
+      panelHeight <= availableBelow ||
+      (panelHeight > availableAbove && availableBelow >= availableAbove);
+    const maxHeight = placeBelow ? availableBelow : availableAbove;
+    const renderedHeight = Math.min(panelHeight, maxHeight);
+    const top = placeBelow
       ? belowTop
       : Math.max(
           VIEWPORT_MARGIN,
-          triggerRect.top - POPOVER_GAP - panelHeight,
+          triggerRect.top - POPOVER_GAP - renderedHeight,
         );
 
     const nextStyle: CSSProperties = {
       left,
-      maxHeight: Math.max(0, viewportHeight - VIEWPORT_MARGIN * 2),
+      maxHeight,
       top,
       width,
     };
@@ -146,6 +169,17 @@ export function AnalystPresence({
     triggerRef.current?.focus();
   }, []);
 
+  const closeWithoutRestoringFocus = useCallback(() => {
+    setPopoverState((currentState) =>
+      currentState.open
+        ? {
+            ...currentState,
+            open: false,
+          }
+        : currentState,
+    );
+  }, []);
+
   useEffect(() => {
     if (!open) return;
 
@@ -168,16 +202,23 @@ export function AnalystPresence({
         }));
       }
     };
-    const handleViewportChange = () => positionPanel();
+    const handlePositionChange = () => positionPanel();
+    const handleViewportResize = () => {
+      if (!isVariantActive(variant, window.innerWidth)) {
+        closeWithoutRestoringFocus();
+        return;
+      }
+      positionPanel();
+    };
 
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("resize", handleViewportChange);
-    window.addEventListener("scroll", handleViewportChange, true);
+    window.addEventListener("resize", handleViewportResize);
+    window.addEventListener("scroll", handlePositionChange, true);
     const resizeObserver =
       typeof ResizeObserver === "undefined" || !panelRef.current
         ? null
-        : new ResizeObserver(handleViewportChange);
+        : new ResizeObserver(handlePositionChange);
     if (resizeObserver && panelRef.current) {
       resizeObserver.observe(panelRef.current);
     }
@@ -185,11 +226,17 @@ export function AnalystPresence({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("resize", handleViewportChange);
-      window.removeEventListener("scroll", handleViewportChange, true);
+      window.removeEventListener("resize", handleViewportResize);
+      window.removeEventListener("scroll", handlePositionChange, true);
       resizeObserver?.disconnect();
     };
-  }, [closeAndRestoreFocus, open, positionPanel]);
+  }, [
+    closeAndRestoreFocus,
+    closeWithoutRestoringFocus,
+    open,
+    positionPanel,
+    variant,
+  ]);
 
   if (model.all.length === 0) {
     return <span className="analyst-presence__empty">언급 정보 없음</span>;
