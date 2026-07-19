@@ -160,18 +160,18 @@ describe("TickerTable", () => {
     const dialog = screen.getByRole("dialog", {
       name: "COHR 언급 분석가",
     });
-    for (const analystName of [
-      "Serenity",
-      "Shay Boloor",
-      "Beth Kindig",
-      "Dylan Patel",
-    ]) {
+    for (const [analystName, sourceUrl] of [
+      ["Serenity", "https://x.com/aleabitoreddit/status/1"],
+      ["Shay Boloor", "https://x.com/StockSavvyShay/status/2"],
+      ["Beth Kindig", "https://x.com/Beth_Kindig/status/3"],
+      ["Dylan Patel", "https://x.com/dylan522p/status/4"],
+    ] as const) {
       expect(within(dialog).getByText(analystName)).toBeInTheDocument();
       expect(
         within(dialog).getByRole("link", {
           name: `${analystName} 최근 원문`,
         }),
-      ).toBeInTheDocument();
+      ).toHaveAttribute("href", sourceUrl);
     }
   });
 
