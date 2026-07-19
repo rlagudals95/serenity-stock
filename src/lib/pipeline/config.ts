@@ -3,7 +3,7 @@ type Environment = Record<string, string | undefined>;
 export interface PipelineConfig {
   supabaseUrl: string;
   supabaseSecretKey: string;
-  xBearerToken: string;
+  rettiwtApiKey: string;
   deepseekApiKey: string;
   deepseekModel: string;
   maxPosts: number;
@@ -18,6 +18,20 @@ export type PipelineConfigResult =
 
 function value(input: string | undefined) {
   return input?.trim() || undefined;
+}
+
+function rettiwtApiKey(environment: Environment) {
+  const encoded = value(environment.RETTIWT_API_KEY);
+  if (encoded) return encoded;
+
+  const authToken = value(environment.X_AUTH_TOKEN);
+  const ct0 = value(environment.X_CT0);
+  const twid = value(environment.X_TWID);
+  if (!authToken || !ct0 || !twid) return undefined;
+
+  return Buffer.from(
+    `auth_token=${authToken};ct0=${ct0};twid=${twid};`,
+  ).toString("base64");
 }
 
 function boundedInteger(
@@ -40,20 +54,20 @@ export function resolvePipelineConfig(
   const supabaseSecretKey =
     value(environment.SUPABASE_SECRET_KEY) ??
     value(environment.SUPABASE_SERVICE_ROLE_KEY);
-  const xBearerToken = value(environment.X_API_BEARER_TOKEN);
+  const resolvedRettiwtApiKey = rettiwtApiKey(environment);
   const deepseekApiKey = value(environment.DEEPSEEK_API_KEY);
   const missing: string[] = [];
 
   if (!supabaseUrl) missing.push("SUPABASE_URL");
   if (!supabaseSecretKey) missing.push("SUPABASE_SECRET_KEY");
-  if (!xBearerToken) missing.push("X_API_BEARER_TOKEN");
+  if (!resolvedRettiwtApiKey) missing.push("RETTIWT_API_KEY");
   if (!deepseekApiKey) missing.push("DEEPSEEK_API_KEY");
 
   if (
     missing.length > 0 ||
     !supabaseUrl ||
     !supabaseSecretKey ||
-    !xBearerToken ||
+    !resolvedRettiwtApiKey ||
     !deepseekApiKey
   ) {
     return { configured: false, missing };
@@ -64,7 +78,7 @@ export function resolvePipelineConfig(
     value: {
       supabaseUrl,
       supabaseSecretKey,
-      xBearerToken,
+      rettiwtApiKey: resolvedRettiwtApiKey,
       deepseekApiKey,
       deepseekModel:
         value(environment.DEEPSEEK_MODEL) ?? "deepseek-v4-flash",

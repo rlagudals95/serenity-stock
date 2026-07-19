@@ -34,7 +34,9 @@ cp .env.example .env.local
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_REPLACE_ME
 SERENITY_CRON_SECRET=GENERATE_A_LONG_RANDOM_SECRET
-X_API_BEARER_TOKEN=REPLACE_ME
+RETTIWT_API_KEY=REPLACE_ME
+TELEGRAM_BOT_TOKEN=REPLACE_ME
+TELEGRAM_CHAT_ID=REPLACE_ME
 DEEPSEEK_API_KEY=REPLACE_ME
 DEEPSEEK_MODEL=deepseek-v4-flash
 SERENITY_INGEST_MAX_POSTS=1000
@@ -49,13 +51,27 @@ keys**에서 생성합니다. 이 값은 Next.js 서버에서만 읽으며 브�
 포함되지 않습니다. `.env.local`을 커밋하거나 키를 `NEXT_PUBLIC_` 변수에
 넣지 마세요.
 
+`RETTIWT_API_KEY`는 유료 X API 키가 아니라 로그인된 X 계정의
+`auth_token`, `ct0`, `twid` 쿠키를 Rettiwt 형식으로 인코딩한 값입니다.
+[Rettiwt 인증 안내](https://github.com/Rishikant181/Rettiwt-API#authentication)에
+따라 생성하고, 계정 전체 세션과 같은 수준의 비밀값으로 취급하세요. 개인
+주계정 대신 읽기 전용 수집 계정을 사용하고 로그아웃·비밀번호 변경 후에는
+키를 다시 발급해야 합니다. 키 없는 guest 모드는 일부 계정의 최신 타임라인을
+누락할 수 있어 이 프로젝트에서는 사용하지 않습니다.
+로컬에서는 `RETTIWT_API_KEY` 대신 `X_AUTH_TOKEN`, `X_CT0`, `X_TWID` 세 값을
+설정해도 실행 시 메모리에서 같은 키를 생성합니다.
+
+Telegram 값을 설정하면 신규 게시물이 저장된 성공 실행과 모든 수집 실패를
+봇으로 알립니다. 신규 게시물이 없는 정상 실행은 메시지를 보내지 않으며,
+Telegram 전송 실패가 원문 수집을 실패시키지는 않습니다.
+
 Steady-state 수집과 분석은 Supabase Edge Functions에서 실행됩니다. 앱 상단의
 **동기화** 버튼은 hosted `ingest-x`와 `analyze-posts` 함수를 순서대로 한 번
 호출합니다.
 
-1. `analyst_profiles`의 활성 분석가를 읽고 username으로 X user ID를 자동 조회
+1. `analyst_profiles`의 활성 분석가를 읽고 Rettiwt로 X user ID를 자동 조회
 2. 최초 조회한 user ID는 분석가별 cursor에 저장하고 이후에는 `since_id`로 신규 글만 수집
-3. X pagination을 따라가며 `x_post_id` 기준으로 중복 없이 저장
+3. Rettiwt timeline pagination을 따라가며 `x_post_id` 기준으로 중복 없이 저장
 4. 누락된 `analysis_jobs` 생성 및 claim
 5. DeepSeek `deepseek-v4-flash` JSON 모드로 글-종목별 분석
 6. ticker, stance, claim, 근거, 리스크, catalyst, confidence 저장
@@ -79,14 +95,14 @@ Cron을 켜기 전에 최근 60일 원문을 수집하려면 개발 서버가 �
 curl -X POST http://127.0.0.1:3000/api/backfill
 ```
 
-과거 글은 원문만 저장되며 자동 분석되지 않습니다. 저장된 글을 X API
+과거 글은 원문만 저장되며 자동 분석되지 않습니다. 저장된 글을 X에
 재조회 없이 DeepSeek로 한 배치씩 분석하려면 다음 명령을 반복 실행합니다.
 
 ```bash
 curl -X POST http://127.0.0.1:3000/api/backfill/analyze
 ```
 
-백필은 X API를 최대 100개씩 페이지네이션하고 `x_post_id` 기준으로
+백필은 Rettiwt의 게시물 및 답글 타임라인을 최대 20개씩 페이지네이션하고 `x_post_id` 기준으로
 중복을 제거합니다. 비용 상한을 위해 기본 최대치는 700개입니다. 새로 저장한
 과거 글은 `analysis_eligible=false`로 기록하므로 일반 동기화가 자동으로
 분석하지 않습니다. 티커 정규화와 품질 검토가 끝난 뒤 오래된 글부터 분석
@@ -111,7 +127,9 @@ Hosted 함수와 Cron은 아래 순서로 반영합니다. Docker는 필요하�
 
 ```bash
 pnpm supabase secrets set \
-  X_API_BEARER_TOKEN=... \
+  RETTIWT_API_KEY=... \
+  TELEGRAM_BOT_TOKEN=... \
+  TELEGRAM_CHAT_ID=... \
   DEEPSEEK_API_KEY=... \
   SERENITY_CRON_SECRET=...
 pnpm supabase functions deploy ingest-x --use-api

@@ -1,15 +1,57 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   extractTickerCandidates,
-  fetchXPosts,
-  fetchXUser,
-  mapXPost,
+  fetchRettiwtPostPage,
+  fetchRettiwtPosts,
+  fetchRettiwtUser,
+  mapRettiwtTweet,
+  type RettiwtClient,
+  type RettiwtTweet,
 } from "./x";
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+function tweet(
+  id: string,
+  overrides: Partial<RettiwtTweet> = {},
+): RettiwtTweet {
+  return {
+    id,
+    fullText: `$TEST post ${id}`,
+    createdAt: "2026-07-18T01:00:00.000Z",
+    conversationId: id,
+    tweetBy: {
+      id: "456",
+      userName: "aleabitoreddit",
+    },
+    url: `https://x.com/aleabitoreddit/status/${id}`,
+    likeCount: 12,
+    replyCount: 3,
+    retweetCount: 4,
+    viewCount: 500,
+    ...overrides,
+  };
+}
+
+function clientWithPages(
+  pages: Array<{
+    list: RettiwtTweet[];
+    next?: string;
+  }>,
+): RettiwtClient {
+  return {
+    user: {
+      details: vi.fn().mockResolvedValue({
+        id: "456",
+        userName: "aleabitoreddit",
+      }),
+      replies: vi.fn().mockImplementation(async () => {
+        const page = pages.shift();
+        if (!page) throw new Error("unexpected replies request");
+        return page;
+      }),
+    },
+  };
+}
 
 describe("extractTickerCandidates", () => {
   it("extracts and deduplicates explicit cashtags", () => {
@@ -19,101 +61,163 @@ describe("extractTickerCandidates", () => {
   });
 });
 
-describe("fetchXUser", () => {
-  it("includes top-level X API error details", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            detail: "credits depleted",
-            status: 402,
-            title: "Payment Required",
-          }),
-          {
-            status: 402,
-            headers: { "content-type": "application/json" },
-          },
-        ),
-      ),
-    );
+describe("fetchRettiwtUser", () => {
+  it("resolves a username through the Rettiwt client", async () => {
+    const client = clientWithPages([]);
 
-    await expect(fetchXUser("aleabitoreddit", "token")).rejects.toThrow(
-      "X API request failed (402): credits depleted",
+    await expect(fetchRettiwtUser(client, "aleabitoreddit")).resolves.toEqual({
+      id: "456",
+      username: "aleabitoreddit",
+    });
+    expect(client.user.details).toHaveBeenCalledWith("aleabitoreddit");
+  });
+
+  it("rejects a missing Rettiwt profile", async () => {
+    const client = clientWithPages([]);
+    vi.mocked(client.user.details).mockResolvedValueOnce(undefined);
+
+    await expect(fetchRettiwtUser(client, "missing")).rejects.toThrow(
+      "Rettiwt did not return a profile for @missing.",
     );
   });
 });
 
-describe("mapXPost", () => {
-  it("maps quoted posts and prefers the full note text", () => {
+describe("mapRettiwtTweet", () => {
+  it("maps long-form quote data and public metrics", () => {
     expect(
-      mapXPost(
-        {
-          id: "123",
-          author_id: "456",
-          text: "truncated",
-          note_tweet: { text: "$COHR full investment thesis" },
-          created_at: "2026-07-18T01:00:00.000Z",
-          conversation_id: "120",
-          referenced_tweets: [{ id: "100", type: "quoted" }],
-          public_metrics: { like_count: 12 },
-        },
+      mapRettiwtTweet(
+        tweet("123", {
+          fullText: "$COHR full investment thesis",
+          conversationId: "120",
+          quoted: { id: "100" },
+          toJSON: () => ({ id: "123", source: "rettiwt" }),
+        }),
         "aleabitoreddit",
       ),
     ).toMatchObject({
       x_post_id: "123",
       author_id: "456",
+      author_username: "aleabitoreddit",
       text: "$COHR full investment thesis",
       url: "https://x.com/aleabitoreddit/status/123",
       post_type: "quote",
+      conversation_id: "120",
       referenced_post_ids: ["100"],
+      metrics: {
+        like_count: 12,
+        reply_count: 3,
+        retweet_count: 4,
+        view_count: 500,
+      },
+      raw: { id: "123", source: "rettiwt" },
+    });
+  });
+
+  it("classifies a repost before its nested quote metadata", () => {
+    expect(
+      mapRettiwtTweet(
+        tweet("123", {
+          quoted: { id: "100" },
+          retweetedTweet: { id: "90" },
+        }),
+        "aleabitoreddit",
+      ),
+    ).toMatchObject({
+      post_type: "repost",
+      referenced_post_ids: ["90", "100"],
     });
   });
 });
 
-describe("fetchXPosts", () => {
-  it("paginates and removes duplicate post IDs before mapping", async () => {
-    const page = (ids: string[], nextToken?: string) =>
-      new Response(
-        JSON.stringify({
-          data: ids.map((id) => ({
-            id,
-            author_id: "456",
-            text: `$TEST post ${id}`,
-            created_at: "2026-07-18T01:00:00.000Z",
-          })),
-          meta: { next_token: nextToken, result_count: ids.length },
-        }),
-        {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        },
-      );
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(page(["3", "2"], "next-page"))
-      .mockResolvedValueOnce(page(["2", "1"]));
-    vi.stubGlobal("fetch", fetchMock);
+describe("fetchRettiwtPostPage", () => {
+  it("sorts newest first, removes posts at the stored cursor, and stops paging", async () => {
+    const client = clientWithPages([
+      {
+        list: [tweet("101"), tweet("103"), tweet("102")],
+        next: "page-2",
+      },
+    ]);
 
-    const posts = await fetchXPosts({
+    const page = await fetchRettiwtPostPage(client, {
       userId: "456",
       username: "aleabitoreddit",
-      bearerToken: "token",
-      startTime: "2026-05-18T00:00:00.000Z",
-      endTime: "2026-07-18T00:00:00.000Z",
+      sinceId: "101",
+      pageSize: 100,
+    });
+
+    expect(page.posts.map((post) => post.x_post_id)).toEqual(["103", "102"]);
+    expect(page.nextToken).toBeUndefined();
+    expect(client.user.replies).toHaveBeenCalledWith("456", 20, undefined);
+  });
+
+  it("rejects a first page older than the stored cursor", async () => {
+    const client = clientWithPages([
+      {
+        list: [tweet("99"), tweet("98")],
+      },
+    ]);
+
+    await expect(
+      fetchRettiwtPostPage(client, {
+        userId: "456",
+        username: "aleabitoreddit",
+        sinceId: "100",
+        pageSize: 100,
+      }),
+    ).rejects.toThrow(
+      "Rettiwt timeline for @aleabitoreddit is older than stored cursor 100.",
+    );
+  });
+
+  it("filters a historical page by the requested time range", async () => {
+    const client = clientWithPages([
+      {
+        list: [
+          tweet("103", { createdAt: "2026-07-19T00:00:00.000Z" }),
+          tweet("102", { createdAt: "2026-07-18T12:00:00.000Z" }),
+          tweet("101", { createdAt: "2026-07-17T00:00:00.000Z" }),
+        ],
+        next: "page-2",
+      },
+    ]);
+
+    const page = await fetchRettiwtPostPage(client, {
+      userId: "456",
+      username: "aleabitoreddit",
+      startTime: "2026-07-18T00:00:00.000Z",
+      endTime: "2026-07-19T00:00:00.000Z",
+      pageSize: 100,
+    });
+
+    expect(page.posts.map((post) => post.x_post_id)).toEqual(["103", "102"]);
+    expect(page.nextToken).toBeUndefined();
+  });
+});
+
+describe("fetchRettiwtPosts", () => {
+  it("paginates with Rettiwt cursors and removes duplicate IDs", async () => {
+    const client = clientWithPages([
+      {
+        list: [tweet("3"), tweet("2")],
+        next: "next-page",
+      },
+      {
+        list: [tweet("2"), tweet("1")],
+      },
+    ]);
+
+    const posts = await fetchRettiwtPosts(client, {
+      userId: "456",
+      username: "aleabitoreddit",
       maxResults: 10,
     });
 
     expect(posts.map((post) => post.x_post_id)).toEqual(["3", "2", "1"]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      "start_time=2026-05-18T00%3A00%3A00.000Z",
-    );
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      "end_time=2026-07-18T00%3A00%3A00.000Z",
-    );
-    expect(String(fetchMock.mock.calls[1][0])).toContain(
-      "pagination_token=next-page",
+    expect(client.user.replies).toHaveBeenNthCalledWith(
+      2,
+      "456",
+      8,
+      "next-page",
     );
   });
 });

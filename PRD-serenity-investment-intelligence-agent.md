@@ -59,11 +59,11 @@ Serenity는 AI, 반도체, 광통신, 데이터센터, 공급망과 관련된 �
 
 - 저가 LLM도 분류와 정보 추출 작업에서 충분한 품질을 낼 수 있다.
 - Supabase 하나로 Postgres, 서버 함수, 스케줄링, 로그 기반을 구성할 수 있다.
-- X API가 사용량 기반 과금이므로 소수 계정의 게시글만 읽는 개인 도구를 작게 시작할 수 있다.
+- Rettiwt-API로 소수 계정의 공개 게시글을 별도 X API 사용료 없이 수집할 수 있다.
 
 ### 3.4 핵심 제약
 
-- X API의 가격과 정책은 바뀔 수 있다.
+- X 비공식 내부 API와 Rettiwt-API의 동작은 예고 없이 바뀔 수 있다.
 - LLM이 태도와 확신도를 잘못 해석할 수 있다.
 - 게시글만으로 실제 투자 가치나 사실 여부를 검증할 수 없다.
 - 초기 사용자는 한 명이므로 운영 복잡도가 제품 가치보다 커지면 안 된다.
@@ -190,7 +190,7 @@ MVP에서는 Daily Brief를 Supabase에 저장하고 Markdown으로 내보낼 �
 
 #### 7.3.1 게시글 수집
 
-X API의 사용자 게시글 엔드포인트를 사용해 Serenity의 신규 게시글을 가져온다.
+Rettiwt-API의 사용자 timeline을 사용해 Serenity의 신규 게시글을 가져온다.
 
 저장 항목:
 
@@ -445,7 +445,7 @@ X 원문과 변경되지 않는 메타데이터를 저장한다.
 | referenced_post_ids | text[] | 참조 글 ID |
 | posted_at | timestamptz | X 작성 시각 |
 | metrics | jsonb | engagement |
-| raw | jsonb | X API 응답 |
+| raw | jsonb | Rettiwt 응답 |
 | inserted_at | timestamptz | 저장 시각 |
 
 #### 7.5.2 `post_analyses`
@@ -698,7 +698,7 @@ Importance Score를 LLM에게 직접 0~100으로 만들게 하지 않는다.
 검증되지 않은 가정:
 
 1. Serenity의 하루 게시글 수가 한 번의 Edge Function 실행으로 처리 가능한 수준이다.
-2. X API가 Serenity 공개 게시글과 필요한 참조 정보를 안정적으로 반환한다.
+2. Rettiwt가 Serenity 공개 게시글과 필요한 참조 정보를 안정적으로 반환한다.
 3. 저가 LLM이 영어 게시글을 읽고 한국어 요약을 만들 때 stance를 85% 이상 맞춘다.
 4. 사용자는 웹 대시보드 없이도 Daily Brief와 Supabase Table Editor를 초기 검증에 사용할 수 있다.
 5. 최근 같은 종목 분석 5개만으로 반복 주장과 새 주장을 충분히 구분할 수 있다.
@@ -749,7 +749,7 @@ MVP에서 하지 않는다.
 
 포함:
 
-- X API 수집
+- Rettiwt timeline 수집
 - 3시간 간격 Supabase Cron
 - ticker aliases
 - Watchlist
@@ -830,7 +830,7 @@ DB와 Daily Brief 조회가 불편하다는 사용 증거가 쌓일 때 진행�
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 
-X_API_BEARER_TOKEN=
+RETTIWT_API_KEY=
 
 LLM_PROVIDER=deepseek
 LLM_MODEL=deepseek-v4-flash
@@ -854,8 +854,7 @@ ID는 username으로 조회한 뒤 분석가별 ingestion cursor에 저장한다
 - GPT-5.4 nano: https://developers.openai.com/api/docs/models/gpt-5.4-nano
 - Supabase Cron: https://supabase.com/docs/guides/cron
 - Supabase scheduled Edge Functions: https://supabase.com/docs/guides/functions/schedule-functions
-- X API pricing: https://docs.x.com/x-api/getting-started/pricing
-- X API rate limits: https://docs.x.com/x-api/fundamentals/rate-limits
+- Rettiwt-API: https://github.com/Rishikant181/Rettiwt-API
 
 ## Appendix C. 최종 제품 판단
 

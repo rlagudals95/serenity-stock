@@ -4,9 +4,11 @@ import { isCronAuthorized } from "../../../supabase/functions/_shared/auth";
 import { parseDeepSeekContent } from "../../../supabase/functions/_shared/deepseek";
 import {
   chooseNewestPostId,
-  fetchXUser,
-  mapXPost,
+  fetchRettiwtPostPage,
+  fetchRettiwtUser,
+  mapRettiwtTweet,
   nextCursorState,
+  type RettiwtClient,
 } from "../../../supabase/functions/_shared/x";
 
 afterEach(() => {
@@ -31,14 +33,14 @@ describe("Edge Function shared helpers", () => {
 
   it("maps long-form X note text and quote metadata", () => {
     expect(
-      mapXPost(
+      mapRettiwtTweet(
         {
           id: "200",
-          author_id: "42",
-          text: "truncated",
-          note_tweet: { text: "full post" },
-          created_at: "2026-07-19T00:00:00.000Z",
-          referenced_tweets: [{ id: "100", type: "quoted" }],
+          fullText: "full post",
+          createdAt: "2026-07-19T00:00:00.000Z",
+          conversationId: "200",
+          tweetBy: { id: "42", userName: "aleabitoreddit" },
+          quoted: { id: "100" },
         },
         "aleabitoreddit",
       ),
@@ -52,24 +54,82 @@ describe("Edge Function shared helpers", () => {
     });
   });
 
-  it("resolves a tracked username to the X user id on first ingestion", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          data: { id: "987", username: "StockSavvyShay" },
+  it("resolves a tracked username through Rettiwt on first ingestion", async () => {
+    const client: RettiwtClient = {
+      user: {
+        details: vi.fn().mockResolvedValue({
+          id: "987",
+          userName: "StockSavvyShay",
         }),
-        { status: 200 },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+        replies: vi.fn(),
+      },
+    };
 
-    await expect(fetchXUser("StockSavvyShay", "token")).resolves.toEqual({
+    await expect(
+      fetchRettiwtUser(client, "StockSavvyShay"),
+    ).resolves.toEqual({
       id: "987",
       username: "StockSavvyShay",
     });
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      "/users/by/username/StockSavvyShay",
+    expect(client.user.details).toHaveBeenCalledWith(
+      "StockSavvyShay",
     );
+  });
+
+  it("rejects a stale Rettiwt timeline instead of silently missing posts", async () => {
+    const client: RettiwtClient = {
+      user: {
+        details: vi.fn(),
+        replies: vi.fn().mockResolvedValue({
+          list: [
+            {
+              id: "99",
+              fullText: "stale post",
+              createdAt: "2026-07-18T00:00:00.000Z",
+              conversationId: "99",
+              tweetBy: { id: "42", userName: "aleabitoreddit" },
+            },
+          ],
+        }),
+      },
+    };
+
+    await expect(
+      fetchRettiwtPostPage(client, {
+        userId: "42",
+        username: "aleabitoreddit",
+        sinceId: "100",
+      }),
+    ).rejects.toThrow(
+      "Rettiwt timeline for @aleabitoreddit is older than stored cursor 100.",
+    );
+  });
+
+  it("passes through Rettiwt's string pagination cursor", async () => {
+    const client: RettiwtClient = {
+      user: {
+        details: vi.fn(),
+        replies: vi.fn().mockResolvedValue({
+          list: [
+            {
+              id: "101",
+              fullText: "new post",
+              createdAt: "2026-07-19T00:00:00.000Z",
+              conversationId: "101",
+              tweetBy: { id: "42", userName: "aleabitoreddit" },
+            },
+          ],
+          next: "page-2",
+        }),
+      },
+    };
+
+    await expect(
+      fetchRettiwtPostPage(client, {
+        userId: "42",
+        username: "aleabitoreddit",
+      }),
+    ).resolves.toMatchObject({ nextToken: "page-2" });
   });
 
   it("selects the numerically newest X snowflake id", () => {
@@ -97,6 +157,23 @@ describe("Edge Function shared helpers", () => {
         previousHighWaterId: "130",
         pagePostIds: ["110"],
         nextToken: undefined,
+      }),
+    ).toEqual({
+      sinceId: "130",
+      highWaterId: null,
+      paginationToken: null,
+      complete: true,
+    });
+  });
+
+  it("commits the first page immediately when bootstrapping a new source", () => {
+    expect(
+      nextCursorState({
+        previousSinceId: null,
+        previousHighWaterId: null,
+        pagePostIds: ["130", "120"],
+        nextToken: "historical-page-2",
+        bootstrap: true,
       }),
     ).toEqual({
       sinceId: "130",

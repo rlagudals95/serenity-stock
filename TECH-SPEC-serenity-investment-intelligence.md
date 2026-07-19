@@ -44,7 +44,7 @@
 
 ```text
                          +-----------------------+
-                         |       X API           |
+                         |    Rettiwt-API        |
                          +-----------+-----------+
                                      |
                                      v
@@ -637,7 +637,7 @@ SELECT 후 INSERT하는 패턴은 사용하지 않는다.
 금지:
 
 - `SUPABASE_SERVICE_ROLE_KEY`
-- X API key
+- Rettiwt API key(X 세션 쿠키 인코딩 값)
 - DeepSeek API key
 - Telegram token
 
@@ -686,7 +686,7 @@ pgTAP으로 검증한다.
 
 > **로컬 MVP 결정 (2026-07-18):** 최초 검증은 Edge Function과 Cron 대신
 > Next.js의 로컬 전용 `POST /api/sync`에서 같은 파이프라인을 수동 실행한다.
-> 이 route는 `localhost`만 허용하고, `X_API_BEARER_TOKEN`,
+> 이 route는 `localhost`만 허용하고, `RETTIWT_API_KEY`,
 > `DEEPSEEK_API_KEY`, `SUPABASE_SECRET_KEY`를 서버에서만 사용한다.
 > 자동 실행이 필요해지는 배포 단계에서 아래의 세 Edge Function과 Cron으로
 > 실행 위치를 옮긴다.
@@ -706,7 +706,7 @@ pgTAP으로 검증한다.
 
 책임:
 
-- X API에서 Serenity의 신규 게시글 수집
+- Rettiwt에서 Serenity의 신규 게시글 수집
 - posts upsert
 - 활성 analysis config의 analysis job 생성
 
@@ -722,7 +722,7 @@ pgTAP으로 검증한다.
 처리:
 
 1. 최근 저장된 `x_post_id`를 cursor로 조회한다.
-2. X API user posts endpoint를 `since_id`와 함께 호출한다.
+2. Rettiwt user replies timeline(게시물 및 답글)을 호출하고 저장된 `since_id`보다 최신인 글만 남긴다.
 3. pagination된 응답을 최대 설정 건수까지 가져온다.
 4. 게시글을 `x_post_id` 기준 upsert한다.
 5. repost를 제외한 신규 게시글에 analysis job을 생성한다.
@@ -731,13 +731,12 @@ pgTAP으로 검증한다.
 
 timeout:
 
-- X API request 20초
+- Rettiwt request 20초
 
 retry:
 
-- 429: reset header 기준 다음 실행으로 연기
-- 5xx/network: 최대 2회 exponential backoff
-- 4xx validation/auth: retry하지 않고 실패
+- Rettiwt가 재시도 가능한 요청을 최대 2회 재시도한다.
+- 인증 실패와 저장 cursor보다 오래된 timeline 응답은 즉시 실패한다.
 
 ### 7.3 `analyze-posts`
 
@@ -981,7 +980,7 @@ Vercel에는 service role, X, DeepSeek, Telegram secret를 넣지 않는다.
 ### 10.2 Supabase Edge Function secrets
 
 ```env
-X_API_BEARER_TOKEN=
+RETTIWT_API_KEY=
 
 LLM_PROVIDER=deepseek
 LLM_MODEL=deepseek-v4-flash
@@ -1017,7 +1016,7 @@ Vitest:
 - cursor encode/decode
 - filter parsing
 - KST report window
-- X payload normalization
+- Rettiwt payload normalization
 
 ### 11.2 Database tests
 
@@ -1037,8 +1036,8 @@ pgTAP:
 
 Deno test:
 
-- X API pagination mock
-- 429/5xx 처리
+- Rettiwt pagination mock
+- stale timeline과 반복 cursor 처리
 - DeepSeek timeout
 - invalid JSON retry
 - schema failure retry

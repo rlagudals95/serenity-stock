@@ -1,15 +1,43 @@
-export interface XPost {
+import { Rettiwt } from "rettiwt-api";
+
+export interface RettiwtUser {
   id: string;
-  author_id: string;
-  text: string;
-  note_tweet?: { text?: string };
-  created_at: string;
-  conversation_id?: string;
-  referenced_tweets?: Array<{
-    id: string;
-    type: "retweeted" | "quoted" | "replied_to";
-  }>;
-  public_metrics?: Record<string, number>;
+  userName: string;
+}
+
+export interface RettiwtTweet {
+  id: string;
+  fullText: string;
+  createdAt: string;
+  conversationId: string;
+  tweetBy: RettiwtUser;
+  url?: string;
+  likeCount?: number;
+  replyCount?: number;
+  retweetCount?: number;
+  viewCount?: number;
+  quoteCount?: number;
+  bookmarkCount?: number;
+  replyTo?: string;
+  quoted?: { id: string };
+  retweetedTweet?: { id: string };
+  toJSON?: () => Record<string, unknown>;
+}
+
+interface RettiwtTimelinePage {
+  list: RettiwtTweet[];
+  next?: string;
+}
+
+export interface RettiwtClient {
+  user: {
+    details(username: string): Promise<RettiwtUser | undefined>;
+    replies(
+      userId: string,
+      count?: number,
+      cursor?: string,
+    ): Promise<RettiwtTimelinePage>;
+  };
 }
 
 export interface StoredPost {
@@ -23,7 +51,7 @@ export interface StoredPost {
   referenced_post_ids: string[];
   posted_at: string;
   metrics: Record<string, number>;
-  raw: XPost;
+  raw: Record<string, unknown>;
 }
 
 export interface XPostPage {
@@ -31,25 +59,13 @@ export interface XPostPage {
   nextToken?: string;
 }
 
-interface XUser {
-  id: string;
-  username: string;
-  name: string;
-  public_metrics?: {
-    followers_count?: number;
-  };
-}
-
-interface XResponse<T> {
-  data?: T;
-  detail?: string;
-  title?: string;
-  errors?: Array<{ detail?: string; title?: string }>;
-  meta?: {
-    newest_id?: string;
-    next_token?: string;
-    result_count?: number;
-  };
+export function createRettiwtClient(apiKey: string): RettiwtClient {
+  return new Rettiwt({
+    apiKey,
+    delay: 250,
+    maxRetries: 2,
+    timeout: 20_000,
+  }) as unknown as RettiwtClient;
 }
 
 export function extractTickerCandidates(text: string) {
@@ -60,162 +76,165 @@ export function extractTickerCandidates(text: string) {
   return [...tickers];
 }
 
-function postType(post: XPost): StoredPost["post_type"] {
-  const references = post.referenced_tweets ?? [];
-  if (references.some((reference) => reference.type === "retweeted")) {
-    return "repost";
+function compareSnowflakeIds(left: string, right: string) {
+  try {
+    const leftId = BigInt(left);
+    const rightId = BigInt(right);
+    return leftId === rightId ? 0 : leftId > rightId ? 1 : -1;
+  } catch {
+    return left.localeCompare(right);
   }
-  if (references.some((reference) => reference.type === "quoted")) {
-    return "quote";
-  }
-  if (references.some((reference) => reference.type === "replied_to")) {
-    return "reply";
-  }
-  return "original";
 }
 
-export function mapXPost(post: XPost, username: string): StoredPost {
+function metrics(tweet: RettiwtTweet) {
+  const entries = [
+    ["like_count", tweet.likeCount],
+    ["reply_count", tweet.replyCount],
+    ["retweet_count", tweet.retweetCount],
+    ["view_count", tweet.viewCount],
+    ["quote_count", tweet.quoteCount],
+    ["bookmark_count", tweet.bookmarkCount],
+  ] as const;
+
+  const result: Record<string, number> = {};
+  for (const [key, value] of entries) {
+    if (typeof value === "number") result[key] = value;
+  }
+  return result;
+}
+
+function rawTweet(tweet: RettiwtTweet) {
+  const value = tweet.toJSON?.() ?? tweet;
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
+export function mapRettiwtTweet(
+  tweet: RettiwtTweet,
+  username: string,
+): StoredPost {
+  const referencedPostIds = [
+    tweet.retweetedTweet?.id,
+    tweet.quoted?.id,
+    tweet.replyTo,
+  ].filter((id): id is string => Boolean(id));
+
   return {
-    x_post_id: post.id,
-    author_id: post.author_id,
+    x_post_id: tweet.id,
+    author_id: tweet.tweetBy.id,
     author_username: username,
-    text: post.note_tweet?.text?.trim() || post.text,
-    url: `https://x.com/${username}/status/${post.id}`,
-    post_type: postType(post),
-    conversation_id: post.conversation_id ?? null,
-    referenced_post_ids: (post.referenced_tweets ?? []).map(
-      (reference) => reference.id,
-    ),
-    posted_at: post.created_at,
-    metrics: post.public_metrics ?? {},
-    raw: post,
+    text: tweet.fullText,
+    url: `https://x.com/${username}/status/${tweet.id}`,
+    post_type: tweet.retweetedTweet
+      ? "repost"
+      : tweet.quoted
+        ? "quote"
+        : tweet.replyTo
+          ? "reply"
+          : "original",
+    conversation_id: tweet.conversationId || null,
+    referenced_post_ids: [...new Set(referencedPostIds)],
+    posted_at: tweet.createdAt,
+    metrics: metrics(tweet),
+    raw: rawTweet(tweet),
   };
 }
 
-async function xResponse<T>(
-  url: URL,
-  bearerToken: string,
-): Promise<XResponse<T>> {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${bearerToken}`,
-      "User-Agent": "serenity-investment-intelligence/0.1",
-    },
-    signal: AbortSignal.timeout(20_000),
-  });
-  const body = (await response.json()) as XResponse<T>;
+export async function fetchRettiwtUser(
+  client: RettiwtClient,
+  username: string,
+) {
+  const user = await client.user.details(username);
+  if (!user?.id) {
+    throw new Error(`Rettiwt did not return a profile for @${username}.`);
+  }
+  return { id: user.id, username: user.userName || username };
+}
 
-  if (!response.ok) {
-    const detail =
-      body.detail ??
-      body.errors?.[0]?.detail ??
-      body.title ??
-      body.errors?.[0]?.title;
-    throw new Error(
-      `X API request failed (${response.status})${detail ? `: ${detail}` : ""}`,
+export async function fetchRettiwtPostPage(
+  client: RettiwtClient,
+  {
+    userId,
+    username,
+    sinceId,
+    startTime,
+    endTime,
+    paginationToken,
+    pageSize = 100,
+  }: {
+    userId: string;
+    username: string;
+    sinceId?: string;
+    startTime?: string;
+    endTime?: string;
+    paginationToken?: string;
+    pageSize?: number;
+  },
+): Promise<XPostPage> {
+  const count = Math.min(20, Math.max(1, pageSize));
+  const page = await client.user.replies(userId, count, paginationToken);
+  const mapped = page.list
+    .map((post) => mapRettiwtTweet(post, username))
+    .sort((left, right) =>
+      compareSnowflakeIds(right.x_post_id, left.x_post_id)
     );
+
+  if (sinceId && !paginationToken && mapped.length > 0) {
+    const newestId = mapped[0].x_post_id;
+    if (compareSnowflakeIds(newestId, sinceId) < 0) {
+      throw new Error(
+        `Rettiwt timeline for @${username} is older than stored cursor ${sinceId}.`,
+      );
+    }
   }
 
-  return body;
-}
+  const reachedSinceId = sinceId
+    ? mapped.some((post) => compareSnowflakeIds(post.x_post_id, sinceId) <= 0)
+    : false;
+  const reachedStartTime = startTime
+    ? mapped.some((post) => post.posted_at < startTime)
+    : false;
+  const posts = mapped.filter((post) => {
+    if (sinceId && compareSnowflakeIds(post.x_post_id, sinceId) <= 0) {
+      return false;
+    }
+    if (startTime && post.posted_at < startTime) return false;
+    if (endTime && post.posted_at > endTime) return false;
+    return true;
+  });
 
-async function xRequest<T>(
-  url: URL,
-  bearerToken: string,
-  emptyValue?: T,
-): Promise<T> {
-  const body = await xResponse<T>(url, bearerToken);
-  if (body.data !== undefined) return body.data;
-  if (emptyValue !== undefined) return emptyValue;
-  throw new Error("X API response did not include data.");
-}
-
-export function fetchXUser(username: string, bearerToken: string) {
-  const url = new URL(
-    `https://api.x.com/2/users/by/username/${encodeURIComponent(username)}`,
-  );
-  url.searchParams.set("user.fields", "id,name,username,public_metrics");
-  return xRequest<XUser>(url, bearerToken);
-}
-
-export async function fetchXPostPage({
-  userId,
-  username,
-  bearerToken,
-  sinceId,
-  startTime,
-  endTime,
-  paginationToken,
-  pageSize,
-}: {
-  userId: string;
-  username: string;
-  bearerToken: string;
-  sinceId?: string;
-  startTime?: string;
-  endTime?: string;
-  paginationToken?: string;
-  pageSize: number;
-}): Promise<XPostPage> {
-  const url = new URL(`https://api.x.com/2/users/${userId}/tweets`);
-  url.searchParams.set(
-    "max_results",
-    String(Math.min(100, Math.max(10, pageSize))),
-  );
-  url.searchParams.set(
-    "tweet.fields",
-    [
-      "id",
-      "text",
-      "author_id",
-      "created_at",
-      "conversation_id",
-      "referenced_tweets",
-      "public_metrics",
-      "note_tweet",
-    ].join(","),
-  );
-  if (sinceId) url.searchParams.set("since_id", sinceId);
-  if (startTime) url.searchParams.set("start_time", startTime);
-  if (endTime) url.searchParams.set("end_time", endTime);
-  if (paginationToken) {
-    url.searchParams.set("pagination_token", paginationToken);
-  }
-
-  const body = await xResponse<XPost[]>(url, bearerToken);
   return {
-    posts: (body.data ?? []).map((post) => mapXPost(post, username)),
-    nextToken: body.meta?.next_token,
+    posts,
+    nextToken: reachedSinceId || reachedStartTime ? undefined : page.next,
   };
 }
 
-export async function fetchXPosts({
-  userId,
-  username,
-  bearerToken,
-  sinceId,
-  startTime,
-  endTime,
-  maxResults,
-}: {
-  userId: string;
-  username: string;
-  bearerToken: string;
-  sinceId?: string;
-  startTime?: string;
-  endTime?: string;
-  maxResults: number;
-}) {
+export async function fetchRettiwtPosts(
+  client: RettiwtClient,
+  {
+    userId,
+    username,
+    sinceId,
+    startTime,
+    endTime,
+    maxResults,
+  }: {
+    userId: string;
+    username: string;
+    sinceId?: string;
+    startTime?: string;
+    endTime?: string;
+    maxResults: number;
+  },
+) {
   const postsById = new Map<string, StoredPost>();
   const seenPaginationTokens = new Set<string>();
   let paginationToken: string | undefined;
 
   while (postsById.size < maxResults) {
     const remaining = maxResults - postsById.size;
-    const page = await fetchXPostPage({
+    const page = await fetchRettiwtPostPage(client, {
       userId,
       username,
-      bearerToken,
       sinceId,
       startTime,
       endTime,
@@ -229,7 +248,7 @@ export async function fetchXPosts({
     const nextToken = page.nextToken;
     if (!nextToken || postsById.size >= maxResults) break;
     if (seenPaginationTokens.has(nextToken)) {
-      throw new Error("X API returned a repeated pagination token.");
+      throw new Error("Rettiwt returned a repeated timeline cursor.");
     }
     seenPaginationTokens.add(nextToken);
     paginationToken = nextToken;

@@ -11,11 +11,19 @@ import {
 } from "../_shared/database.ts";
 import { errorDetails, jsonResponse } from "../_shared/http.ts";
 import {
-  fetchXPostPage,
-  fetchXUser,
+  createRettiwtClient,
+  fetchRettiwtPostPage,
+  fetchRettiwtUser,
   nextCursorState,
+  type RettiwtClient,
   type StoredPost,
 } from "../_shared/x.ts";
+import {
+  formatIngestionFailure,
+  formatIngestionSuccess,
+  sendTelegramMessage,
+  type TelegramConfig,
+} from "../_shared/telegram.ts";
 
 interface IngestionCursor {
   source_key: string;
@@ -56,11 +64,34 @@ function boundedInteger(
   return Math.min(maximum, Math.max(minimum, parsed));
 }
 
+function telegramConfig(): TelegramConfig | undefined {
+  const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN")?.trim();
+  const chatId = Deno.env.get("TELEGRAM_CHAT_ID")?.trim();
+  if (!botToken && !chatId) return undefined;
+  if (!botToken || !chatId) {
+    console.error("Telegram notification configuration is incomplete.");
+    return undefined;
+  }
+  return { botToken, chatId };
+}
+
+async function notifyTelegram(
+  config: TelegramConfig | undefined,
+  message: string,
+) {
+  if (!config) return;
+  try {
+    await sendTelegramMessage(config, message);
+  } catch (error) {
+    console.error("Telegram notification failed", errorDetails(error));
+  }
+}
+
 async function loadOrCreateCursor(
   client: SupabaseClient,
   sourceKey: string,
   username: string,
-  bearerToken: string,
+  rettiwt: RettiwtClient,
 ): Promise<IngestionCursor> {
   const { data, error } = await client
     .from("ingestion_cursors")
@@ -82,7 +113,7 @@ async function loadOrCreateCursor(
   if (latestError) {
     throw new Error(`Initial cursor lookup failed: ${latestError.message}`);
   }
-  const user = await fetchXUser(username, bearerToken);
+  const user = await fetchRettiwtUser(rettiwt, username);
 
   const initial: IngestionCursor = {
     source_key: sourceKey,
@@ -142,7 +173,8 @@ Deno.serve(async (request) => {
 
   const supabaseUrl = requiredEnvironment("SUPABASE_URL");
   const serviceRoleKey = requiredEnvironment("SUPABASE_SERVICE_ROLE_KEY");
-  const xBearerToken = requiredEnvironment("X_API_BEARER_TOKEN");
+  const rettiwtApiKey = requiredEnvironment("RETTIWT_API_KEY");
+  const telegram = telegramConfig();
   const maxPosts = boundedInteger(
     Deno.env.get("SERENITY_INGEST_MAX_POSTS"),
     1_000,
@@ -156,6 +188,7 @@ Deno.serve(async (request) => {
     serviceRoleKey,
     "serenity-edge-ingest",
   );
+  const rettiwt = createRettiwtClient(rettiwtApiKey);
 
   let hasLease = false;
   let runId: string | undefined;
@@ -188,7 +221,7 @@ Deno.serve(async (request) => {
     }
 
     runId = await startRun(client, "ingest_x_posts", counts, {
-      source: "x",
+      source: "rettiwt",
       sources: sources.map((source) => ({
         key: source.analyst_key,
         username: source.x_username,
@@ -203,8 +236,12 @@ Deno.serve(async (request) => {
         client,
         sourceKey,
         source.x_username,
-        xBearerToken,
+        rettiwt,
       );
+      const bootstrap =
+        cursor.since_id === null &&
+        cursor.high_water_id === null &&
+        cursor.pagination_token === null;
       let sinceId = cursor.since_id;
       let highWaterId = cursor.high_water_id;
       let paginationToken = cursor.pagination_token;
@@ -215,14 +252,13 @@ Deno.serve(async (request) => {
 
       while (sourceFetched < maxPosts) {
         if (paginationToken && seenTokens.has(paginationToken)) {
-          throw new Error("X API returned a repeated pagination token.");
+          throw new Error("Rettiwt returned a repeated pagination token.");
         }
         if (paginationToken) seenTokens.add(paginationToken);
 
-        const page = await fetchXPostPage({
+        const page = await fetchRettiwtPostPage(rettiwt, {
           userId: cursor.user_id,
           username: source.x_username,
-          bearerToken: xBearerToken,
           sinceId: sinceId ?? undefined,
           paginationToken: paginationToken ?? undefined,
           pageSize: Math.min(100, maxPosts - sourceFetched),
@@ -240,6 +276,7 @@ Deno.serve(async (request) => {
           previousHighWaterId: highWaterId,
           pagePostIds: page.posts.map((post) => post.x_post_id),
           nextToken: page.nextToken,
+          bootstrap,
         });
         sinceId = transition.sinceId;
         highWaterId = transition.highWaterId;
@@ -277,6 +314,15 @@ Deno.serve(async (request) => {
     counts.jobsCreated = Number(jobsCreated ?? 0);
 
     await finishRun(client, runId, "completed", counts);
+    if (counts.inserted > 0) {
+      await notifyTelegram(
+        telegram,
+        formatIngestionSuccess({
+          ...counts,
+          occurredAt: new Date().toISOString(),
+        }),
+      );
+    }
     return jsonResponse({ status: "completed", counts });
   } catch (error) {
     if (runId) await finishRun(client, runId, "failed", counts, error);
@@ -287,6 +333,17 @@ Deno.serve(async (request) => {
         .eq("source_key", activeSourceKey);
     }
     console.error("ingest-x failed", errorDetails(error));
+    await notifyTelegram(
+      telegram,
+      formatIngestionFailure({
+        sourceKey: activeSourceKey,
+        error: errorDetails(error).message,
+        fetched: counts.fetched,
+        inserted: counts.inserted,
+        pages: counts.pages,
+        occurredAt: new Date().toISOString(),
+      }),
+    );
     return jsonResponse({ error: errorDetails(error), counts }, 500);
   } finally {
     if (hasLease) await releaseLease(client, jobName, ownerId);

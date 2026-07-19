@@ -1,15 +1,43 @@
-export interface XPost {
+import { Rettiwt } from "rettiwt-api";
+
+export interface RettiwtUser {
   id: string;
-  author_id: string;
-  text: string;
-  note_tweet?: { text?: string };
-  created_at: string;
-  conversation_id?: string;
-  referenced_tweets?: Array<{
-    id: string;
-    type: "retweeted" | "quoted" | "replied_to";
-  }>;
-  public_metrics?: Record<string, number>;
+  userName: string;
+}
+
+export interface RettiwtTweet {
+  id: string;
+  fullText: string;
+  createdAt: string;
+  conversationId: string;
+  tweetBy: RettiwtUser;
+  url?: string;
+  likeCount?: number;
+  replyCount?: number;
+  retweetCount?: number;
+  viewCount?: number;
+  quoteCount?: number;
+  bookmarkCount?: number;
+  replyTo?: string;
+  quoted?: { id: string };
+  retweetedTweet?: { id: string };
+  toJSON?: () => Record<string, unknown>;
+}
+
+interface RettiwtTimelinePage {
+  list: RettiwtTweet[];
+  next?: string;
+}
+
+export interface RettiwtClient {
+  user: {
+    details(username: string): Promise<RettiwtUser | undefined>;
+    replies(
+      userId: string,
+      count?: number,
+      cursor?: string,
+    ): Promise<RettiwtTimelinePage>;
+  };
 }
 
 export interface StoredPost {
@@ -23,22 +51,7 @@ export interface StoredPost {
   referenced_post_ids: string[];
   posted_at: string;
   metrics: Record<string, number>;
-  raw: XPost;
-}
-
-interface XResponse<T> {
-  data?: T;
-  detail?: string;
-  title?: string;
-  errors?: Array<{ detail?: string; title?: string }>;
-  meta?: {
-    next_token?: string;
-  };
-}
-
-interface XUser {
-  id: string;
-  username: string;
+  raw: Record<string, unknown>;
 }
 
 export interface XPostPage {
@@ -53,75 +66,21 @@ export interface CursorTransition {
   complete: boolean;
 }
 
+export function createRettiwtClient(apiKey: string): RettiwtClient {
+  return new Rettiwt({
+    apiKey,
+    delay: 250,
+    maxRetries: 2,
+    timeout: 20_000,
+  }) as unknown as RettiwtClient;
+}
+
 export function extractTickerCandidates(text: string) {
   const tickers = new Set<string>();
   for (const match of text.matchAll(/\$([A-Z][A-Z0-9.-]{0,9})\b/g)) {
     tickers.add(match[1]);
   }
   return [...tickers];
-}
-
-function postType(post: XPost): StoredPost["post_type"] {
-  const references = post.referenced_tweets ?? [];
-  if (references.some((reference) => reference.type === "retweeted")) {
-    return "repost";
-  }
-  if (references.some((reference) => reference.type === "quoted")) {
-    return "quote";
-  }
-  if (references.some((reference) => reference.type === "replied_to")) {
-    return "reply";
-  }
-  return "original";
-}
-
-export function mapXPost(post: XPost, username: string): StoredPost {
-  return {
-    x_post_id: post.id,
-    author_id: post.author_id,
-    author_username: username,
-    text: post.note_tweet?.text?.trim() || post.text,
-    url: `https://x.com/${username}/status/${post.id}`,
-    post_type: postType(post),
-    conversation_id: post.conversation_id ?? null,
-    referenced_post_ids: (post.referenced_tweets ?? []).map(
-      (reference) => reference.id,
-    ),
-    posted_at: post.created_at,
-    metrics: post.public_metrics ?? {},
-    raw: post,
-  };
-}
-
-export async function fetchXUser(
-  username: string,
-  bearerToken: string,
-): Promise<XUser> {
-  const url = new URL(
-    `https://api.x.com/2/users/by/username/${encodeURIComponent(username)}`,
-  );
-  url.searchParams.set("user.fields", "id,username");
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${bearerToken}`,
-      "User-Agent": "serenity-investment-intelligence/0.1",
-    },
-    signal: AbortSignal.timeout(20_000),
-  });
-  const body = (await response.json()) as XResponse<XUser>;
-  if (!response.ok) {
-    const detail =
-      body.detail ??
-      body.errors?.[0]?.detail ??
-      body.title ??
-      body.errors?.[0]?.title ??
-      "unknown error";
-    throw new Error(`X API request failed (${response.status}): ${detail}`);
-  }
-  if (!body.data?.id) {
-    throw new Error(`X user lookup did not return an id for @${username}.`);
-  }
-  return body.data;
 }
 
 function compareSnowflakeIds(left: string, right: string) {
@@ -132,6 +91,70 @@ function compareSnowflakeIds(left: string, right: string) {
   } catch {
     return left.localeCompare(right);
   }
+}
+
+function metrics(tweet: RettiwtTweet) {
+  const entries = [
+    ["like_count", tweet.likeCount],
+    ["reply_count", tweet.replyCount],
+    ["retweet_count", tweet.retweetCount],
+    ["view_count", tweet.viewCount],
+    ["quote_count", tweet.quoteCount],
+    ["bookmark_count", tweet.bookmarkCount],
+  ] as const;
+
+  const result: Record<string, number> = {};
+  for (const [key, value] of entries) {
+    if (typeof value === "number") result[key] = value;
+  }
+  return result;
+}
+
+function rawTweet(tweet: RettiwtTweet) {
+  const value = tweet.toJSON?.() ?? tweet;
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
+export function mapRettiwtTweet(
+  tweet: RettiwtTweet,
+  username: string,
+): StoredPost {
+  const referencedPostIds = [
+    tweet.retweetedTweet?.id,
+    tweet.quoted?.id,
+    tweet.replyTo,
+  ].filter((id): id is string => Boolean(id));
+
+  return {
+    x_post_id: tweet.id,
+    author_id: tweet.tweetBy.id,
+    author_username: username,
+    text: tweet.fullText,
+    url: `https://x.com/${username}/status/${tweet.id}`,
+    post_type: tweet.retweetedTweet
+      ? "repost"
+      : tweet.quoted
+        ? "quote"
+        : tweet.replyTo
+          ? "reply"
+          : "original",
+    conversation_id: tweet.conversationId || null,
+    referenced_post_ids: [...new Set(referencedPostIds)],
+    posted_at: tweet.createdAt,
+    metrics: metrics(tweet),
+    raw: rawTweet(tweet),
+  };
+}
+
+export async function fetchRettiwtUser(
+  client: RettiwtClient,
+  username: string,
+) {
+  const user = await client.user.details(username);
+  if (!user?.id) {
+    throw new Error(`Rettiwt did not return a profile for @${username}.`);
+  }
+  return { id: user.id, username: user.userName || username };
 }
 
 export function chooseNewestPostId(
@@ -150,14 +173,16 @@ export function nextCursorState({
   previousHighWaterId,
   pagePostIds,
   nextToken,
+  bootstrap = false,
 }: {
   previousSinceId: string | null;
   previousHighWaterId: string | null;
   pagePostIds: string[];
   nextToken?: string;
+  bootstrap?: boolean;
 }): CursorTransition {
   const highWaterId = chooseNewestPostId(pagePostIds, previousHighWaterId);
-  if (nextToken) {
+  if (nextToken && !bootstrap) {
     return {
       sinceId: previousSinceId,
       highWaterId,
@@ -173,64 +198,49 @@ export function nextCursorState({
   };
 }
 
-export async function fetchXPostPage({
-  userId,
-  username,
-  bearerToken,
-  sinceId,
-  paginationToken,
-  pageSize = 100,
-}: {
-  userId: string;
-  username: string;
-  bearerToken: string;
-  sinceId?: string;
-  paginationToken?: string;
-  pageSize?: number;
-}): Promise<XPostPage> {
-  const url = new URL(`https://api.x.com/2/users/${userId}/tweets`);
-  url.searchParams.set(
-    "max_results",
-    String(Math.min(100, Math.max(10, pageSize))),
-  );
-  url.searchParams.set(
-    "tweet.fields",
-    [
-      "id",
-      "text",
-      "author_id",
-      "created_at",
-      "conversation_id",
-      "referenced_tweets",
-      "public_metrics",
-      "note_tweet",
-    ].join(","),
-  );
-  if (sinceId) url.searchParams.set("since_id", sinceId);
-  if (paginationToken) {
-    url.searchParams.set("pagination_token", paginationToken);
+export async function fetchRettiwtPostPage(
+  client: RettiwtClient,
+  {
+    userId,
+    username,
+    sinceId,
+    paginationToken,
+    pageSize = 100,
+  }: {
+    userId: string;
+    username: string;
+    sinceId?: string;
+    paginationToken?: string;
+    pageSize?: number;
+  },
+): Promise<XPostPage> {
+  const count = Math.min(20, Math.max(1, pageSize));
+  const page = await client.user.replies(userId, count, paginationToken);
+  const mapped = page.list
+    .map((post) => mapRettiwtTweet(post, username))
+    .sort((left, right) =>
+      compareSnowflakeIds(right.x_post_id, left.x_post_id)
+    );
+
+  if (sinceId && !paginationToken && mapped.length > 0) {
+    const newestId = mapped[0].x_post_id;
+    if (compareSnowflakeIds(newestId, sinceId) < 0) {
+      throw new Error(
+        `Rettiwt timeline for @${username} is older than stored cursor ${sinceId}.`,
+      );
+    }
   }
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${bearerToken}`,
-      "User-Agent": "serenity-investment-intelligence/0.1",
-    },
-    signal: AbortSignal.timeout(20_000),
-  });
-  const body = (await response.json()) as XResponse<XPost[]>;
-  if (!response.ok) {
-    const detail =
-      body.detail ??
-      body.errors?.[0]?.detail ??
-      body.title ??
-      body.errors?.[0]?.title ??
-      "unknown error";
-    throw new Error(`X API request failed (${response.status}): ${detail}`);
-  }
+  const reachedSinceId = sinceId
+    ? mapped.some((post) => compareSnowflakeIds(post.x_post_id, sinceId) <= 0)
+    : false;
+  const posts = mapped.filter(
+    (post) =>
+      !sinceId || compareSnowflakeIds(post.x_post_id, sinceId) > 0,
+  );
 
   return {
-    posts: (body.data ?? []).map((post) => mapXPost(post, username)),
-    nextToken: body.meta?.next_token,
+    posts,
+    nextToken: reachedSinceId ? undefined : page.next,
   };
 }

@@ -1,6 +1,7 @@
 {
   "imports": {
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2.110.7",
+    "rettiwt-api": "npm:rettiwt-api@7.1.2",
     "zod": "npm:zod@4.3.6"
   }
 }

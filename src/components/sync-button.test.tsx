@@ -19,14 +19,14 @@ describe("SyncButton", () => {
     render(
       <SyncButton
         configured={false}
-        missing={["X_API_BEARER_TOKEN", "DEEPSEEK_API_KEY"]}
+        missing={["RETTIWT_API_KEY", "DEEPSEEK_API_KEY"]}
       />,
     );
 
     expect(screen.getByRole("button", { name: "데이터 동기화" })).toBeDisabled();
     expect(screen.getByRole("button")).toHaveAttribute(
       "title",
-      "필수 환경 변수: X_API_BEARER_TOKEN, DEEPSEEK_API_KEY",
+      "필수 환경 변수: RETTIWT_API_KEY, DEEPSEEK_API_KEY",
     );
   });
 

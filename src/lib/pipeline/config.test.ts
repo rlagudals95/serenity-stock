@@ -9,7 +9,7 @@ describe("resolvePipelineConfig", () => {
       missing: [
         "SUPABASE_URL",
         "SUPABASE_SECRET_KEY",
-        "X_API_BEARER_TOKEN",
+        "RETTIWT_API_KEY",
         "DEEPSEEK_API_KEY",
       ],
     });
@@ -20,7 +20,7 @@ describe("resolvePipelineConfig", () => {
       resolvePipelineConfig({
         SUPABASE_URL: "https://serenity.supabase.co",
         SUPABASE_SECRET_KEY: "sb_secret_test",
-        X_API_BEARER_TOKEN: "x-token",
+        RETTIWT_API_KEY: "rettiwt-session",
         DEEPSEEK_API_KEY: "deepseek-token",
         SERENITY_SYNC_MAX_POSTS: "750",
         SERENITY_ANALYSIS_BATCH_SIZE: "250",
@@ -32,13 +32,33 @@ describe("resolvePipelineConfig", () => {
       value: {
         supabaseUrl: "https://serenity.supabase.co",
         supabaseSecretKey: "sb_secret_test",
-        xBearerToken: "x-token",
+        rettiwtApiKey: "rettiwt-session",
         deepseekApiKey: "deepseek-token",
         deepseekModel: "deepseek-v4-flash",
         maxPosts: 500,
         analysisBatchSize: 100,
         backfillDays: 90,
         backfillMaxPosts: 1000,
+      },
+    });
+  });
+
+  it("derives the Rettiwt key from X session cookies without persisting a duplicate", () => {
+    const result = resolvePipelineConfig({
+      SUPABASE_URL: "https://serenity.supabase.co",
+      SUPABASE_SECRET_KEY: "sb_secret_test",
+      X_AUTH_TOKEN: "auth-value",
+      X_CT0: "ct0-value",
+      X_TWID: "u%3D123",
+      DEEPSEEK_API_KEY: "deepseek-token",
+    });
+
+    expect(result).toMatchObject({
+      configured: true,
+      value: {
+        rettiwtApiKey: Buffer.from(
+          "auth_token=auth-value;ct0=ct0-value;twid=u%3D123;",
+        ).toString("base64"),
       },
     });
   });
