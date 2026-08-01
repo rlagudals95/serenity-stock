@@ -191,7 +191,7 @@ describe("Edge Function shared helpers", () => {
     );
   });
 
-  it("rejects a stale Rettiwt timeline instead of silently missing posts", async () => {
+  it("treats a stale Rettiwt timeline as caught up", async () => {
     const client: RettiwtClient = {
       user: {
         details: vi.fn(),
@@ -215,9 +215,7 @@ describe("Edge Function shared helpers", () => {
         username: "aleabitoreddit",
         sinceId: "100",
       }),
-    ).rejects.toThrow(
-      "Rettiwt timeline for @aleabitoreddit is older than stored cursor 100.",
-    );
+    ).resolves.toEqual({ posts: [], nextToken: undefined });
   });
 
   it("excludes contextual posts that do not belong to the tracked user", async () => {

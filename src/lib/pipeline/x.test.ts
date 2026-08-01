@@ -246,7 +246,7 @@ describe("fetchRettiwtPostPage", () => {
     expect(client.user.replies).toHaveBeenCalledWith("456", 20, undefined);
   });
 
-  it("rejects a first page older than the stored cursor", async () => {
+  it("treats a first page older than the stored cursor as caught up", async () => {
     const client = clientWithPages([
       {
         list: [tweet("99"), tweet("98")],
@@ -260,9 +260,7 @@ describe("fetchRettiwtPostPage", () => {
         sinceId: "100",
         pageSize: 100,
       }),
-    ).rejects.toThrow(
-      "Rettiwt timeline for @aleabitoreddit is older than stored cursor 100.",
-    );
+    ).resolves.toEqual({ posts: [], nextToken: undefined });
   });
 
   it("filters a historical page by the requested time range", async () => {
