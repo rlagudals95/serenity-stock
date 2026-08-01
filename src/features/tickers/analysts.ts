@@ -63,4 +63,31 @@ export const analystProfiles: AnalystProfile[] = [
       "미국 증시와 상장 기업의 주요 뉴스, 실적, 시장 이벤트를 빠르게 정리해 공유합니다.",
     focusAreas: ["미국 증시", "기업 뉴스", "실적", "시장 이벤트"],
   },
+  {
+    key: "convequity",
+    name: "Convequity",
+    username: "Convequity",
+    followerLabel: "공개 X 계정",
+    description:
+      "AI 가치사슬 전반의 기술 구조와 병목을 기업 실적·밸류에이션에 연결해 분석합니다.",
+    focusAreas: ["AI 인프라", "반도체", "데이터센터", "기업 소프트웨어"],
+  },
+  {
+    key: "gene_munster",
+    name: "Gene Munster",
+    username: "munster_gene",
+    followerLabel: "공개 X 계정",
+    description:
+      "AI·빅테크 성장주를 중심으로 실적, 투자 지출과 장기 성장 관점을 공유합니다.",
+    focusAreas: ["AI 인프라", "빅테크", "반도체", "성장주"],
+  },
+  {
+    key: "chit_chat_stocks",
+    name: "Chit Chat Stocks",
+    username: "ChitChatStocks",
+    followerLabel: "공개 X 계정",
+    description:
+      "상장 기업의 비즈니스 모델, 실적, 밸류에이션과 장기 투자 논점을 정리합니다.",
+    focusAreas: ["성장주", "기업 펀더멘털", "실적", "밸류에이션"],
+  },
 ];
