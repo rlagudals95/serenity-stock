@@ -85,17 +85,24 @@ export function TickerOverviewPage({
             </article>
           ))}
         </div>
-        {analysts.some((analyst) => analyst.key === "shay_boloor") ? (
-          <div className="project-disclosure">
-            <ShieldCheck aria-hidden="true" size={15} />
-            <p>
-              Shay의 공개 포트폴리오 성과는 Savvy Trader를 통해 추적되지만,
-              회계법인의 감사를 받은 운용 성과가 아닙니다. 이 서비스는 공개
-              게시물을 분석하는 팬 프로젝트이며 Shay 본인이나 관련 회사와
-              제휴된 관계가 아닙니다.
-            </p>
-          </div>
-        ) : null}
+        <div className="project-disclosure">
+          <ShieldCheck aria-hidden="true" size={15} />
+          <p>
+            각 분석가와 리서치 브랜드에는 보유 포지션, 유료 구독,
+            운용사·스폰서 관계에 따른 이해상충이 있을 수 있습니다. 이 서비스는
+            어떤 계정과도 제휴하지 않으며, 공개 발언을 투자 조언이나 감사된 운용
+            성과로 취급하지 않습니다.
+            {analysts.some((analyst) => analyst.key === "shay_boloor") ? (
+              <>
+                {" "}
+                Shay의 공개 포트폴리오 성과는 Savvy Trader를 통해 추적되지만,
+                회계법인의 감사를 받은 운용 성과가 아닙니다. 이 서비스는 공개
+                게시물을 분석하는 팬 프로젝트이며 Shay 본인이나 관련 회사와
+                제휴된 관계가 아닙니다.
+              </>
+            ) : null}
+          </p>
+        </div>
       </section>
       <div className="table-workspace">
         <TickerControls query={query} />

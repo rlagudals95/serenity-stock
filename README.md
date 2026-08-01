@@ -3,7 +3,12 @@
 성장주 분석가들의 공개 X 게시글에서 종목별 언급, 누적 관점,
 최근 의견과 변화 근거를 확인하고 분석가별 관점을 비교하는 개인용 투자
 리서치 도구입니다. 현재 Serenity, Shay Boloor, Beth Kindig,
-App Economy Insights, Brian Stoffel을 추적합니다.
+App Economy Insights, Brian Stoffel, Ole S Hansen, StockMKTNewz,
+Convequity, Gene Munster, Chit Chat Stocks까지 총 10개 공개 계정을 추적합니다.
+
+추가 후보 평가와 선정 근거는
+[`docs/research/2026-08-01-x-influencer-expansion.md`](docs/research/2026-08-01-x-influencer-expansion.md)에
+정리되어 있습니다.
 
 ## Stack
 
