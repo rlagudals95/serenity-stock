@@ -4264,8 +4264,9 @@ a.candidate-change__claim:hover {
   }
 
   .ticker-proof-hero__intro h1 {
-    max-width: 12ch;
-    font-size: 2rem;
+    max-width: none;
+    font-size: 1.875rem;
+    word-break: keep-all;
   }
 
   .proof-case-strip {
