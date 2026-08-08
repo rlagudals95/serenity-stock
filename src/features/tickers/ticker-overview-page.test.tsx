@@ -72,7 +72,7 @@ describe("TickerOverviewPage", () => {
       screen.getByText("과거 적중 이력과 완료 표본을 함께 봅니다."),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("추적 소스 7명"));
+    fireEvent.click(screen.getByText("추적 소스 10명"));
 
     expect(
       screen.getByRole("link", { name: "@aleabitoreddit" }),
@@ -95,6 +95,16 @@ describe("TickerOverviewPage", () => {
     expect(
       screen.getByRole("link", { name: "@StockMKTNewz" }),
     ).toHaveAttribute("href", "https://x.com/StockMKTNewz");
+    expect(
+      screen.getByRole("link", { name: "@Convequity" }),
+    ).toHaveAttribute("href", "https://x.com/Convequity");
+    expect(
+      screen.getByRole("link", { name: "@munster_gene" }),
+    ).toHaveAttribute("href", "https://x.com/munster_gene");
+    expect(
+      screen.getByRole("link", { name: "@ChitChatStocks" }),
+    ).toHaveAttribute("href", "https://x.com/ChitChatStocks");
+    expect(screen.getByText(/유료 구독.*이해상충/)).toBeInTheDocument();
     expect(screen.getByText(/Shay 본인이나 관련 회사와 제휴/)).toBeInTheDocument();
     expect(screen.getByText(/감사를 받은 운용 성과가 아닙니다/)).toBeInTheDocument();
     expect(screen.getByText(/2026.*기준/)).toBeInTheDocument();
