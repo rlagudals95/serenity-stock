@@ -1,5 +1,6 @@
 import { getCumulativeSentiment } from "./query";
 import { compareAnalystSnapshots } from "./analyst-presence-model";
+import { buildProofOverview } from "./proof-model";
 import {
   getFixtureTickerDetail,
   tickerOverviewFixtures,
@@ -17,6 +18,9 @@ import type {
   Stance,
   TickerDetail,
   TickerOverview,
+  TickerProofCase,
+  TickerProofMetrics,
+  TickerProofOverview,
   TickerSignalPerformance,
   TrendPoint,
 } from "./types";
@@ -119,6 +123,33 @@ export interface MarketDailyPriceViewRow {
   adjusted_close: DatabaseNumber;
 }
 
+export interface TickerProofViewRow {
+  ticker: string;
+  current_bullish_analyst_count: DatabaseNumber;
+  hit_count: DatabaseNumber;
+  sample_size: DatabaseNumber;
+  hit_rate: DatabaseNumber;
+  wilson_score: DatabaseNumber;
+}
+
+export interface TickerProofCaseViewRow {
+  ticker: string;
+  company_name: string;
+  analyst_name: string | null;
+  signal_at: string;
+  target_session_date: string | null;
+  raw_return: DatabaseNumber;
+  source_url: string | null;
+}
+
+export interface TickerProofRollupViewRow {
+  completed_count: DatabaseNumber;
+  hit_count: DatabaseNumber;
+  miss_count: DatabaseNumber;
+  pending_count: DatabaseNumber;
+  latest_result_at: string | null;
+}
+
 interface AnalystProfileRow {
   analyst_key: string;
   display_name: string;
@@ -173,6 +204,18 @@ function nullableNumber(value: DatabaseNumber) {
   if (value === null || value === undefined || value === "") return null;
   const normalized = Number(value);
   return Number.isFinite(normalized) ? normalized : null;
+}
+
+export function mapTickerProofRow(
+  row: TickerProofViewRow,
+): TickerProofMetrics {
+  return {
+    currentBullishAnalystCount: number(row.current_bullish_analyst_count),
+    hitCount: number(row.hit_count),
+    sampleSize: number(row.sample_size),
+    hitRate: nullableNumber(row.hit_rate),
+    wilsonScore: nullableNumber(row.wilson_score),
+  };
 }
 
 function stance(value: string | null): Stance {
@@ -250,11 +293,37 @@ function isSignalFoundationUnavailable(error: {
   );
 }
 
+function isProofFoundationUnavailable(error: {
+  code?: string;
+  message?: string;
+}) {
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    error.message?.includes("ticker_candidate_proof") ||
+    error.message?.includes("ticker_proof_rollup") ||
+    error.message?.includes("analyst_bullish_episode_outcomes")
+  );
+}
+
+function fallbackProofMetrics(analysts: readonly AnalystSnapshot[]) {
+  return {
+    currentBullishAnalystCount: analysts.filter(
+      (analyst) => analyst.latestStance === "bullish",
+    ).length,
+    hitCount: 0,
+    sampleSize: 0,
+    hitRate: null,
+    wilsonScore: null,
+  } satisfies TickerProofMetrics;
+}
+
 export function mapOverviewRow(
   row: OverviewViewRow,
   analysts: AnalystSnapshot[] = [],
   signalRow?: SignalPerformanceViewRow | null,
   priceRows: MarketDailyPriceViewRow[] = [],
+  proofRow?: TickerProofViewRow | null,
 ): TickerOverview {
   const positiveCount = number(row.positive_count);
   const negativeCount = number(row.negative_count);
@@ -289,6 +358,9 @@ export function mapOverviewRow(
       signalRow === undefined
         ? getRelease0SignalPerformance(row.ticker)
         : mapSignalPerformanceRow(signalRow ?? undefined, priceRows),
+    proofMetrics: proofRow
+      ? mapTickerProofRow(proofRow)
+      : fallbackProofMetrics(analysts),
   };
 }
 
@@ -308,7 +380,8 @@ export async function getTickerOverviewRows(): Promise<TickerOverview[]> {
   }
 
   const client = await supabaseClient();
-  const [overviewResult, analystResult, signalResult] = await Promise.all([
+  const [overviewResult, analystResult, signalResult, proofResult] =
+    await Promise.all([
     client
       .from("ticker_overview")
       .select("*")
@@ -317,8 +390,9 @@ export async function getTickerOverviewRows(): Promise<TickerOverview[]> {
       .from("ticker_analyst_summary")
       .select("*")
       .order("last_mentioned_at", { ascending: false }),
-    client.from("ticker_signal_performance").select("*"),
-  ]);
+      client.from("ticker_signal_performance").select("*"),
+      client.from("ticker_candidate_proof").select("*"),
+    ]);
 
   if (overviewResult.error) {
     throw new Error(`Ticker overview query failed: ${overviewResult.error.message}`);
@@ -334,12 +408,21 @@ export async function getTickerOverviewRows(): Promise<TickerOverview[]> {
       `Signal performance query failed: ${signalResult.error.message}`,
     );
   }
+  if (proofResult.error && !isProofFoundationUnavailable(proofResult.error)) {
+    throw new Error(`Ticker proof query failed: ${proofResult.error.message}`);
+  }
 
   const analystsByTicker = groupAnalysts(
     (analystResult.data ?? []) as AnalystSummaryViewRow[],
   );
   const signalsByTicker = new Map(
     ((signalResult.data ?? []) as SignalPerformanceViewRow[]).map((row) => [
+      row.ticker,
+      row,
+    ]),
+  );
+  const proofByTicker = new Map(
+    ((proofResult.data ?? []) as TickerProofViewRow[]).map((row) => [
       row.ticker,
       row,
     ]),
@@ -373,8 +456,81 @@ export async function getTickerOverviewRows(): Promise<TickerOverview[]> {
         ? (signalsByTicker.get(row.ticker) ?? null)
         : undefined,
       pricesByTicker.get(row.ticker) ?? [],
+      proofResult.error ? undefined : (proofByTicker.get(row.ticker) ?? null),
     ),
   );
+}
+
+function mapProofCase(row: TickerProofCaseViewRow): TickerProofCase | null {
+  const returnValue = nullableNumber(row.raw_return);
+  if (returnValue === null || returnValue <= 0) return null;
+  return {
+    ticker: row.ticker,
+    companyName: row.company_name,
+    analystName: row.analyst_name,
+    signalAt: row.signal_at,
+    resultAt: row.target_session_date,
+    returnValue,
+    sourceUrl: row.source_url,
+    state: "completed",
+  };
+}
+
+export async function getTickerProofOverview(
+  rows: readonly TickerOverview[],
+): Promise<TickerProofOverview> {
+  const fallback = buildProofOverview(rows);
+  if (!(await hasSupabaseConfig())) return fallback;
+
+  const client = await supabaseClient();
+  const [caseResult, rollupResult] = await Promise.all([
+    client
+      .from("analyst_bullish_episode_outcomes")
+      .select(
+        "ticker,company_name,analyst_name,signal_at,target_session_date,raw_return,source_url",
+      )
+      .eq("outcome_status", "evaluable")
+      .eq("hit", true)
+      .order("target_session_date", { ascending: false })
+      .limit(3),
+    client.from("ticker_proof_rollup").select("*").maybeSingle(),
+  ]);
+
+  if (
+    (caseResult.error && !isProofFoundationUnavailable(caseResult.error)) ||
+    (rollupResult.error && !isProofFoundationUnavailable(rollupResult.error))
+  ) {
+    const message = caseResult.error?.message ?? rollupResult.error?.message;
+    throw new Error(`Ticker proof overview query failed: ${message}`);
+  }
+  if (caseResult.error || rollupResult.error) return fallback;
+
+  const cases = ((caseResult.data ?? []) as TickerProofCaseViewRow[])
+    .map(mapProofCase)
+    .filter((item): item is TickerProofCase => item !== null);
+  const rollup = rollupResult.data as TickerProofRollupViewRow | null;
+  const completedCount = number(rollup?.completed_count);
+  const hitCount = number(rollup?.hit_count);
+  const missCount = number(rollup?.miss_count);
+
+  if (cases.length === 0) {
+    return {
+      ...fallback,
+      completedCount,
+      hitCount,
+      missCount,
+      latestResultAt: rollup?.latest_result_at ?? fallback.latestResultAt,
+    };
+  }
+
+  return {
+    state: "completed",
+    completedCount,
+    hitCount,
+    missCount,
+    latestResultAt: rollup?.latest_result_at ?? cases[0].resultAt,
+    cases,
+  };
 }
 
 export async function getAnalystProfiles(): Promise<AnalystProfile[]> {

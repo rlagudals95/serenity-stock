@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSupabaseTickerDetail,
   mapOverviewRow,
+  mapTickerProofRow,
   type OverviewViewRow,
 } from "./repository";
 
@@ -52,6 +53,42 @@ const signalPerformanceRow = {
 };
 
 describe("mapOverviewRow", () => {
+  it("normalizes ticker proof counts and rates", () => {
+    expect(
+      mapTickerProofRow({
+        ticker: "NVDA",
+        current_bullish_analyst_count: "3",
+        hit_count: "17",
+        sample_size: "24",
+        hit_rate: "0.7083333333",
+        wilson_score: "0.5086",
+      }),
+    ).toEqual({
+      currentBullishAnalystCount: 3,
+      hitCount: 17,
+      sampleSize: 24,
+      hitRate: 0.7083333333,
+      wilsonScore: 0.5086,
+    });
+  });
+
+  it("keeps missing proof rates nullable", () => {
+    expect(
+      mapTickerProofRow({
+        ticker: "ASTS",
+        current_bullish_analyst_count: 2,
+        hit_count: 0,
+        sample_size: 0,
+        hit_rate: null,
+        wilson_score: null,
+      }),
+    ).toMatchObject({
+      currentBullishAnalystCount: 2,
+      hitRate: null,
+      wilsonScore: null,
+    });
+  });
+
   it("normalizes nullable view fields and database numbers for the UI contract", () => {
     expect(
       mapOverviewRow(
