@@ -155,7 +155,7 @@ function matchesView(row: TickerOverview, view: TickerView) {
       row.mentions7d > row.mentions30d / 4
     );
   }
-  return (row.signalPerformance?.directionalAnalystCount ?? 0) >= 2;
+  return row.cumulativeSentiment === "positive";
 }
 
 function matchesPeriod(
