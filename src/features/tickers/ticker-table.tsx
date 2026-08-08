@@ -18,16 +18,16 @@ const headers: Array<{
   className: string;
 }> = [
   { label: "종목", sort: "ticker", className: "ticker-column" },
-  { label: "관심도", sort: "mentions7d", className: "interest-column" },
-  { label: "인플루언서 관점", className: "analyst-column" },
+  { label: "지금 모인 의견", sort: "mentions7d", className: "interest-column" },
+  { label: "인플루언서", className: "analyst-column" },
   { label: "최근 변화", className: "change-column" },
   {
-    label: "의견 근거",
-    description: "원문 · 의견 참여 인원",
+    label: "과거 적중률",
+    description: "20거래일 상승 · 완료 표본",
     className: "evidence-column",
   },
   {
-    label: "의견 후 주가",
+    label: "의견 후 실제 결과",
     description: "의견 합의 시점 대비",
     className: "market-validation-column",
   },
@@ -155,7 +155,7 @@ export function TickerTable({
             <strong>{first}–{last} / {total}개 종목</strong>
           </span>
           <span className="market-data-note">
-            의견 후 주가는 배당·세금·거래비용을 반영하지 않습니다.
+            실제 결과는 배당·세금·거래비용을 반영하지 않습니다.
           </span>
         </div>
         {pagination && pagination.pageCount > 1 ? (

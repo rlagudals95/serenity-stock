@@ -14,6 +14,7 @@ import {
 } from "./format";
 import { SentimentDistribution } from "./sentiment-distribution";
 import { SignalPerformanceCompact } from "./signal-performance";
+import { proofDisplay } from "./proof-model";
 import type { ChangeType, TickerOverview } from "./types";
 import { WatchlistButton } from "./watchlist-button";
 
@@ -43,6 +44,11 @@ export function TickerRow({ row }: { row: TickerOverview }) {
   const href = `/tickers/${row.ticker}`;
   const analysts = row.analysts ?? [];
   const sourceCount = analysts.filter((analyst) => analyst.latestSourceUrl).length;
+  const positiveAnalystCount =
+    row.signalPerformance?.bullishAnalystCount ??
+    row.proofMetrics?.currentBullishAnalystCount ??
+    analysts.filter((analyst) => analyst.latestStance === "bullish").length;
+  const trackRecord = proofDisplay(row.proofMetrics);
   const latestAnalyst = [...analysts].sort((left, right) =>
     right.lastMentionedAt.localeCompare(left.lastMentionedAt),
   )[0];
@@ -65,14 +71,16 @@ export function TickerRow({ row }: { row: TickerOverview }) {
           <span className="company-name">{row.companyName}</span>
         </Link>
       </th>
-      <td className="interest-column" data-label="관심도">
+      <td className="interest-column" data-label="지금 모인 의견">
         <div className="candidate-interest">
-          <strong>7일 {row.mentions7d}회</strong>
+          <strong>
+            긍정 {positiveAnalystCount}명 · 7일 {row.mentions7d}회
+          </strong>
           <span>총 {row.totalMentions}회</span>
           <SentimentDistribution compact row={row} />
         </div>
       </td>
-      <td className="analyst-column" data-label="인플루언서 관점">
+      <td className="analyst-column" data-label="인플루언서">
         <AnalystPresence
           analysts={analysts}
           compact
@@ -125,16 +133,21 @@ export function TickerRow({ row }: { row: TickerOverview }) {
           </time>
         </div>
       </td>
-      <td className="evidence-column" data-label="의견 근거">
-        <div className="candidate-evidence">
-          <strong>{sourceCount > 0 ? "원문 확인 가능" : "확인할 원문 없음"}</strong>
+      <td className="evidence-column" data-label="과거 적중률">
+        <div
+          aria-label={
+            trackRecord.state === "verified"
+              ? `과거 20거래일 상승 적중률 ${trackRecord.label}, ${trackRecord.detail}`
+              : `${trackRecord.label}, ${trackRecord.detail}`
+          }
+          className={`candidate-track-record candidate-track-record--${trackRecord.state}`}
+        >
+          <strong>{trackRecord.label}</strong>
+          <span>{trackRecord.detail}</span>
           <span>원문 {sourceCount}개</span>
-          <span>
-            의견 참여 {row.signalPerformance?.directionalAnalystCount ?? 0}명
-          </span>
         </div>
       </td>
-      <td className="market-validation-column" data-label="의견 후 주가">
+      <td className="market-validation-column" data-label="의견 후 실제 결과">
         <SignalPerformanceCompact performance={row.signalPerformance} />
       </td>
     </tr>

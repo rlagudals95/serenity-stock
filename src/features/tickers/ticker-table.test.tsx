@@ -35,6 +35,13 @@ const row: TickerOverview = {
   lastMentionedAt: "2026-07-18T05:42:00.000Z",
   watchlisted: true,
   reviewCount: 0,
+  proofMetrics: {
+    currentBullishAnalystCount: 3,
+    hitCount: 17,
+    sampleSize: 24,
+    hitRate: 17 / 24,
+    wilsonScore: 0.5086,
+  },
   signalPerformance: {
     direction: "positive",
     signalAt: "2026-06-18T15:00:00.000Z",
@@ -140,7 +147,7 @@ describe("TickerTable", () => {
     expect(
       screen.getByRole("link", { name: /COHR Coherent Corp\./ }),
     ).toHaveAttribute("href", "/tickers/COHR");
-    expect(screen.getByText("7일 8회")).toBeInTheDocument();
+    expect(screen.getByText("긍정 3명 · 7일 8회")).toBeInTheDocument();
     expect(screen.getByText("총 47회")).toBeInTheDocument();
     expect(screen.getByText("+38")).toBeInTheDocument();
     expect(screen.getByText("-3")).toBeInTheDocument();
@@ -152,8 +159,8 @@ describe("TickerTable", () => {
     expect(screen.getByText("+24.8%")).toBeInTheDocument();
     expect(screen.getByText("방향 일치")).toBeInTheDocument();
     for (const heading of [
-      "관심도",
-      "인플루언서 관점",
+      "지금 모인 의견",
+      "인플루언서",
       "최근 변화",
     ]) {
       expect(
@@ -161,16 +168,16 @@ describe("TickerTable", () => {
       ).toBeInTheDocument();
     }
     expect(
-      screen.getByRole("columnheader", { name: /의견 근거/ }),
+      screen.getByRole("columnheader", { name: /과거 적중률/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("columnheader", { name: /의견 후 주가/ }),
+      screen.getByRole("columnheader", { name: /의견 후 실제 결과/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText("원문 · 의견 참여 인원")).toBeInTheDocument();
+    expect(screen.getByText("20거래일 상승 · 완료 표본")).toBeInTheDocument();
     expect(screen.getByText("의견 합의 시점 대비")).toBeInTheDocument();
-    expect(screen.getByText("원문 확인 가능")).toBeInTheDocument();
     expect(screen.getByText("원문 4개")).toBeInTheDocument();
-    expect(screen.getByText("의견 참여 3명")).toBeInTheDocument();
+    expect(screen.getByText("71%")).toBeInTheDocument();
+    expect(screen.getByText("판정 완료 24건")).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "품질" })).not.toBeInTheDocument();
     expect(screen.getByText("Serenity")).toBeInTheDocument();
     expect(screen.getByText("Shay Boloor")).toBeInTheDocument();
@@ -181,7 +188,7 @@ describe("TickerTable", () => {
     render(<TickerTable query={defaultTickerQuery} rows={[row]} />);
 
     expect(
-      screen.getByRole("columnheader", { name: "인플루언서 관점" }),
+      screen.getByRole("columnheader", { name: "인플루언서" }),
     ).toBeInTheDocument();
 
     const tickerLink = screen.getByRole("link", {
@@ -215,6 +222,30 @@ describe("TickerTable", () => {
         }),
       ).toHaveAttribute("href", sourceUrl);
     }
+  });
+
+  it("keeps a small proof sample in verification instead of showing a rate", () => {
+    render(
+      <TickerTable
+        query={defaultTickerQuery}
+        rows={[
+          {
+            ...row,
+            proofMetrics: {
+              currentBullishAnalystCount: 2,
+              hitCount: 7,
+              sampleSize: 9,
+              hitRate: 7 / 9,
+              wilsonScore: 0.4526,
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("검증 중")).toBeInTheDocument();
+    expect(screen.getByText("판정 완료 9건")).toBeInTheDocument();
+    expect(screen.queryByText("78%")).not.toBeInTheDocument();
   });
 
   it("exposes the full distribution as an accessible label", () => {
