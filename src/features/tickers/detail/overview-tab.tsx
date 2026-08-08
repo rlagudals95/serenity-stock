@@ -130,29 +130,29 @@ export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
           <header className="section-heading-row">
             <div>
               <p className="section-kicker">90 DAY SIGNAL</p>
-              <h2>성향 분포와 언급 추이</h2>
+              <h2>분석가 합의와 언급 추이</h2>
             </div>
             <p className="directional-sample">
-              방향성 표본 <span className="data-number">{directional}</span> / 총{" "}
-              <span className="data-number">{ticker.totalMentions}</span>
+              방향성 투표 <span className="data-number">{directional}</span>표 / 총 언급{" "}
+              <span className="data-number">{ticker.totalMentions}</span>회
             </p>
           </header>
           <div className="detail-distribution">
             <div className="detail-distribution__numbers">
               <span>
-                긍정 <strong className="data-number">{ticker.positiveCount}</strong>
+                강세 <strong className="data-number">{ticker.positiveCount}</strong>표
               </span>
               <span>
-                부정 <strong className="data-number">{ticker.negativeCount}</strong>
+                약세 <strong className="data-number">{ticker.negativeCount}</strong>표
               </span>
               <span>
-                중립/혼재{" "}
+                기타{" "}
                 <strong className="data-number">
                   {ticker.neutralCount + ticker.mixedCount}
                 </strong>
               </span>
             </div>
-            <p>방향성 언급 중 긍정 비율 65% 이상이면 긍정 우세로 분류합니다.</p>
+            <p>최근 90일 내 최소 3명의 유효 투표 중 정확히 2/3 이상이 같은 방향이면 우세로 분류합니다.</p>
           </div>
           <MentionChart data={ticker.trend} />
           <div className="chart-legend" aria-hidden="true">

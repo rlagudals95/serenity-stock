@@ -62,6 +62,8 @@ describe("signal performance migration", () => {
     const sql = signalMigrationSql();
 
     expect(sql).toContain("2.0 / 3.0");
+    expect(sql).toContain("directional_analyst_count >= 3");
+    expect(sql).toContain("p_minimum_analysts integer default 3");
     expect(sql).toContain("primary key (ticker, session_date)");
   });
 });
@@ -104,6 +106,18 @@ describe("verified X source migration", () => {
     expect(sql).toMatch(
       /create view public\.ticker_consensus_analyst_summary\s+with \(security_invoker = true\)/,
     );
+  });
+
+  it("keeps one fresh directional vote per eligible analyst", () => {
+    const sql = verifiedSourcesMigrationSql();
+
+    expect(sql).toContain("with vote_events as");
+    expect(sql).toContain("latest_vote_event as");
+    expect(sql).toContain(
+      "distinct on (events.ticker, events.analyst_key)",
+    );
+    expect(sql).toContain("events.stance in ('bullish', 'bearish')");
+    expect(sql).toContain("events.posted_at >= now() - interval '90 days'");
   });
 
   it("registers the verified additions and keeps pilots inactive", () => {

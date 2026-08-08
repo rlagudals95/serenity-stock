@@ -370,12 +370,60 @@ set
 create view public.ticker_consensus_analyst_summary
 with (security_invoker = true)
 as
-select summary.*
-from public.ticker_analyst_summary as summary
-join public.analyst_profiles as profile
-  on profile.analyst_key = summary.analyst_key
-where profile.active = true
-  and profile.consensus_eligible = true;
+with vote_events as (
+  select timeline.*
+  from public.ticker_opinion_timeline_v2 as timeline
+  join public.analyst_profiles as profile
+    on profile.analyst_key = timeline.analyst_key
+  where profile.active = true
+    and profile.consensus_eligible = true
+    and (
+      timeline.review_status = 'approved'
+      or (
+        timeline.review_status = 'auto'
+        and timeline.stance_confidence >= 0.75
+      )
+    )
+    and (
+      timeline.stance in ('bullish', 'bearish')
+      or (
+        timeline.stance in ('neutral', 'mixed')
+        and timeline.analyst_change_type = 'stance_change'
+      )
+    )
+), latest_vote_event as (
+  select distinct on (events.ticker, events.analyst_key)
+    events.*
+  from vote_events as events
+  order by
+    events.ticker,
+    events.analyst_key,
+    events.posted_at desc,
+    events.post_ticker_analysis_id desc
+)
+select
+  events.ticker,
+  events.analyst_key,
+  events.analyst_name,
+  events.x_username,
+  summary.total_mentions,
+  summary.positive_count,
+  summary.negative_count,
+  summary.neutral_count,
+  summary.mixed_count,
+  summary.unknown_count,
+  events.stance as latest_stance,
+  events.claim as latest_claim,
+  events.analyst_change_type as latest_change_type,
+  summary.first_mentioned_at,
+  events.posted_at as last_mentioned_at,
+  events.source_url as latest_source_url
+from latest_vote_event as events
+join public.ticker_analyst_summary as summary
+  on summary.ticker = events.ticker
+  and summary.analyst_key = events.analyst_key
+where events.stance in ('bullish', 'bearish')
+  and events.posted_at >= now() - interval '90 days';
 
 create or replace view public.analyst_track_records
 with (security_invoker = true)

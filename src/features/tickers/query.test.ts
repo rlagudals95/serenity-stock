@@ -89,10 +89,13 @@ describe("getCumulativeSentiment", () => {
     ).toBe("insufficient");
   });
 
-  it("uses the 65/35 thresholds for positive, mixed, and negative labels", () => {
+  it("requires an exact two-thirds analyst majority", () => {
     expect(
       getCumulativeSentiment({ positiveCount: 7, negativeCount: 3 }),
     ).toBe("positive");
+    expect(
+      getCumulativeSentiment({ positiveCount: 13, negativeCount: 7 }),
+    ).toBe("mixed");
     expect(
       getCumulativeSentiment({ positiveCount: 5, negativeCount: 5 }),
     ).toBe("mixed");

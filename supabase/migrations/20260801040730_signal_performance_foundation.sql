@@ -88,7 +88,7 @@ create table public.consensus_signal_events (
     check (jsonb_typeof(analyst_snapshot) = 'object'),
   constraint consensus_signal_events_counts_check
     check (
-      directional_analyst_count >= 2
+      directional_analyst_count >= 3
       and bullish_analyst_count >= 0
       and bearish_analyst_count >= 0
       and directional_analyst_count =
@@ -244,7 +244,7 @@ for each row execute function private.set_updated_at();
 create or replace function private.classify_consensus_state(
   p_bullish integer,
   p_bearish integer,
-  p_minimum_analysts integer default 2,
+  p_minimum_analysts integer default 3,
   p_threshold numeric default (2.0 / 3.0)
 )
 returns text

@@ -10,7 +10,6 @@ import type {
   AnalystSnapshot,
   ChangeType,
   Claim,
-  CumulativeSentiment,
   Opinion,
   ResearchItem,
   SignalOutcomeStatus,
@@ -161,12 +160,6 @@ interface AnalystProfileRow {
   consensus_eligible: boolean;
 }
 
-const sentiments = new Set<CumulativeSentiment>([
-  "positive",
-  "negative",
-  "mixed",
-  "insufficient",
-]);
 const stances = new Set<Stance>([
   "bullish",
   "bearish",
@@ -327,13 +320,24 @@ export function mapOverviewRow(
   priceRows: MarketDailyPriceViewRow[] = [],
   proofRow?: TickerProofViewRow | null,
 ): TickerOverview {
-  const positiveCount = number(row.positive_count);
-  const negativeCount = number(row.negative_count);
-  const storedSentiment =
-    row.cumulative_sentiment &&
-    sentiments.has(row.cumulative_sentiment as CumulativeSentiment)
-      ? (row.cumulative_sentiment as CumulativeSentiment)
-      : null;
+  const positiveCount = analysts.filter(
+    (analyst) => analyst.latestStance === "bullish",
+  ).length;
+  const negativeCount = analysts.filter(
+    (analyst) => analyst.latestStance === "bearish",
+  ).length;
+  const neutralCount = analysts.filter(
+    (analyst) => analyst.latestStance === "neutral",
+  ).length;
+  const mixedCount = analysts.filter(
+    (analyst) => analyst.latestStance === "mixed",
+  ).length;
+  const unknownCount = analysts.filter(
+    (analyst) => analyst.latestStance === "unknown",
+  ).length;
+  const latestAnalyst = [...analysts].sort((left, right) =>
+    right.lastMentionedAt.localeCompare(left.lastMentionedAt),
+  )[0];
 
   return {
     ticker: row.ticker,
@@ -341,14 +345,15 @@ export function mapOverviewRow(
     totalMentions: number(row.total_mentions),
     positiveCount,
     negativeCount,
-    neutralCount: number(row.neutral_count),
-    mixedCount: number(row.mixed_count),
-    unknownCount: number(row.unknown_count),
-    cumulativeSentiment:
-      storedSentiment ??
-      getCumulativeSentiment({ positiveCount, negativeCount }),
-    latestStance: stance(row.latest_stance),
-    changeType: change(row.latest_change_type),
+    neutralCount,
+    mixedCount,
+    unknownCount,
+    cumulativeSentiment: getCumulativeSentiment({
+      positiveCount,
+      negativeCount,
+    }),
+    latestStance: latestAnalyst?.latestStance ?? "unknown",
+    changeType: latestAnalyst?.latestChangeType ?? null,
     mentions7d: number(row.mentions_7d),
     mentions30d: number(row.mentions_30d),
     lastMentionedAt:
@@ -389,7 +394,7 @@ export async function getTickerOverviewRows(): Promise<TickerOverview[]> {
       .select("*")
       .order("total_mentions", { ascending: false }),
     client
-      .from("ticker_analyst_summary")
+      .from("ticker_consensus_analyst_summary")
       .select("*")
       .order("last_mentioned_at", { ascending: false }),
       client.from("ticker_signal_performance").select("*"),
@@ -801,7 +806,7 @@ export async function getTickerDetail(
         .order("posted_at", { ascending: false })
         .limit(100),
       client
-        .from("ticker_analyst_summary")
+        .from("ticker_consensus_analyst_summary")
         .select("*")
         .eq("ticker", normalized)
         .order("last_mentioned_at", { ascending: false }),

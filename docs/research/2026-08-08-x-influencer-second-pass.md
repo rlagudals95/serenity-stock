@@ -42,4 +42,6 @@ Stock Market Nerd, TheValueist, Mostly Borrowed Ideas, Jose Najarro는 프로필
 - `source_role`: `opinion`, `context`, `news`, `risk`
 - `consensus_eligible`: 종합의견 한 표로 인정할지 여부
 - DB 제약으로 `consensus_eligible=true`는 `source_role='opinion'`일 때만 허용한다.
-- `ticker_consensus_analyst_summary`는 활성 의견 소스만 제공하며, 후보 증거와 적중 이력 계산도 이 집합만 사용한다.
+- `ticker_consensus_analyst_summary`는 활성 의견 소스별 최신 유효 방향성 의견을 90일 동안 한 표로 제공한다. 승인된 의견 또는 신뢰도 0.75 이상의 자동 분석만 인정하고, 명시적 `neutral`/`mixed` `stance_change`는 기존 표를 해제한다.
+- 종합의견은 최소 3명의 방향성 표와 정확한 `2/3` 합의를 요구한다. 게시글 수와 언급 수는 관심도 지표이며 표의 가중치가 아니다.
+- 후보 증거와 적중 이력 계산도 같은 합의 가능 집합만 사용한다.
