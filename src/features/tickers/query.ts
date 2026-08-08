@@ -174,6 +174,29 @@ function matchesPeriod(
   return new Date(row.lastMentionedAt) >= cutoff;
 }
 
+function compareVerifiedProof(left: TickerOverview, right: TickerOverview) {
+  const leftVerified = (left.proofMetrics?.sampleSize ?? 0) >= 10;
+  const rightVerified = (right.proofMetrics?.sampleSize ?? 0) >= 10;
+  if (leftVerified !== rightVerified) return leftVerified ? -1 : 1;
+
+  if (leftVerified && rightVerified) {
+    const scoreDifference =
+      (right.proofMetrics?.wilsonScore ?? -1) -
+      (left.proofMetrics?.wilsonScore ?? -1);
+    if (scoreDifference !== 0) return scoreDifference;
+  }
+
+  const analystDifference =
+    (right.proofMetrics?.currentBullishAnalystCount ?? 0) -
+    (left.proofMetrics?.currentBullishAnalystCount ?? 0);
+  if (analystDifference !== 0) return analystDifference;
+
+  const recencyDifference =
+    new Date(right.lastMentionedAt).getTime() -
+    new Date(left.lastMentionedAt).getTime();
+  return recencyDifference || left.ticker.localeCompare(right.ticker);
+}
+
 export function applyTickerQuery<T extends TickerOverview>(
   rows: readonly T[],
   input: Partial<TickerQuery>,
@@ -206,6 +229,14 @@ export function applyTickerQuery<T extends TickerOverview>(
       );
     })
     .sort((left, right) => {
+      if (
+        query.view === "verified" &&
+        query.sort === "totalMentions" &&
+        query.order === "desc"
+      ) {
+        return compareVerifiedProof(left, right);
+      }
+
       let comparison = 0;
 
       if (query.view === "changes" && query.sort === "totalMentions") {

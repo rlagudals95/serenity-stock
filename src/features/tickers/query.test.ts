@@ -148,6 +148,54 @@ describe("parseTickerQuery", () => {
 });
 
 describe("applyTickerQuery", () => {
+  it("ranks verified candidates by sample-aware proof before mention volume", () => {
+    const candidate = rows[1];
+    const proofRows = [
+      {
+        ...candidate,
+        ticker: "SMALL",
+        totalMentions: 100,
+        proofMetrics: {
+          currentBullishAnalystCount: 4,
+          hitCount: 1,
+          sampleSize: 1,
+          hitRate: 1,
+          wilsonScore: 0.2065,
+        },
+      },
+      {
+        ...candidate,
+        ticker: "SOLID",
+        totalMentions: 10,
+        proofMetrics: {
+          currentBullishAnalystCount: 3,
+          hitCount: 17,
+          sampleSize: 24,
+          hitRate: 17 / 24,
+          wilsonScore: 0.5086,
+        },
+      },
+      {
+        ...candidate,
+        ticker: "PROVEN",
+        totalMentions: 20,
+        proofMetrics: {
+          currentBullishAnalystCount: 2,
+          hitCount: 7,
+          sampleSize: 10,
+          hitRate: 0.7,
+          wilsonScore: 0.3968,
+        },
+      },
+    ];
+
+    expect(applyTickerQuery(proofRows, {}).map((row) => row.ticker)).toEqual([
+      "SOLID",
+      "PROVEN",
+      "SMALL",
+    ]);
+  });
+
   it("shows only verified candidates by default", () => {
     expect(applyTickerQuery(rows, {}).map((row) => row.ticker)).toEqual([
       "COHR",
