@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, SlidersHorizontal, Star, X } from "lucide-react";
+import { ChevronDown, Search, Star, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 
@@ -11,7 +11,13 @@ import {
 } from "./format";
 import type { TickerQuery } from "./types";
 
-export function TickerControls({ query }: { query: TickerQuery }) {
+export function TickerControls({
+  query,
+  resultCount,
+}: {
+  query: TickerQuery;
+  resultCount: number;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -25,8 +31,12 @@ export function TickerControls({ query }: { query: TickerQuery }) {
     } else {
       next.set(name, value);
     }
+    next.delete("page");
+    const suffix = next.toString();
     startTransition(() => {
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+      router.replace(suffix ? `${pathname}?${suffix}` : pathname, {
+        scroll: false,
+      });
     });
   }
 
@@ -82,69 +92,80 @@ export function TickerControls({ query }: { query: TickerQuery }) {
         Watchlist
       </button>
 
-      <label className="select-control">
-        <span className="sr-only">누적 관점</span>
-        <select
-          onChange={(event) => update("sentiment", event.target.value)}
-          value={query.sentiment}
-        >
-          <option value="all">누적 관점</option>
-          {Object.entries(cumulativeSentimentLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <details className="advanced-filters">
+        <summary>
+          <span>세부 필터{activeCount ? ` ${activeCount}` : ""}</span>
+          <ChevronDown aria-hidden="true" size={14} />
+        </summary>
+        <div className="advanced-filters__panel">
+          <label className="select-control">
+            <span>누적 관점</span>
+            <select
+              aria-label="누적 관점"
+              onChange={(event) => update("sentiment", event.target.value)}
+              value={query.sentiment}
+            >
+              <option value="all">전체</option>
+              {Object.entries(cumulativeSentimentLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      <label className="select-control controls__secondary">
-        <span className="sr-only">최근 의견</span>
-        <select
-          onChange={(event) => update("stance", event.target.value)}
-          value={query.stance}
-        >
-          <option value="all">최근 의견</option>
-          {Object.entries(stanceLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
+          <label className="select-control">
+            <span>최근 의견</span>
+            <select
+              aria-label="최근 의견"
+              onChange={(event) => update("stance", event.target.value)}
+              value={query.stance}
+            >
+              <option value="all">전체</option>
+              {Object.entries(stanceLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      <label className="select-control controls__secondary">
-        <span className="sr-only">변화 유형</span>
-        <select
-          onChange={(event) => update("change", event.target.value)}
-          value={query.change}
-        >
-          <option value="all">변화</option>
-          {Object.entries(changeLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-          <option value="none">변화 없음</option>
-        </select>
-      </label>
+          <label className="select-control">
+            <span>변화 유형</span>
+            <select
+              aria-label="변화 유형"
+              onChange={(event) => update("change", event.target.value)}
+              value={query.change}
+            >
+              <option value="all">전체</option>
+              {Object.entries(changeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+              <option value="none">변화 없음</option>
+            </select>
+          </label>
 
-      <label className="select-control controls__secondary">
-        <span className="sr-only">최근 언급 기간</span>
-        <select
-          onChange={(event) => update("period", event.target.value)}
-          value={query.period}
-        >
-          <option value="all">전체 기간</option>
-          <option value="24h">최근 24시간</option>
-          <option value="7d">최근 7일</option>
-          <option value="30d">최근 30일</option>
-        </select>
-      </label>
+          <label className="select-control">
+            <span>최근 언급 기간</span>
+            <select
+              aria-label="최근 언급 기간"
+              onChange={(event) => update("period", event.target.value)}
+              value={query.period}
+            >
+              <option value="all">전체 기간</option>
+              <option value="24h">최근 24시간</option>
+              <option value="7d">최근 7일</option>
+              <option value="30d">최근 30일</option>
+            </select>
+          </label>
+        </div>
+      </details>
 
-      <button className="filter-button controls__mobile-filter" type="button">
-        <SlidersHorizontal aria-hidden="true" size={14} />
-        필터{activeCount ? ` ${activeCount}` : ""}
-      </button>
+      <span aria-live="polite" className="controls__result-count">
+        {resultCount}개 결과
+      </span>
     </div>
   );
 }

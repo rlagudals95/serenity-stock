@@ -1,10 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { getFixtureTickerDetail } from "../fixtures";
 import { MetricsStrip } from "./metrics-strip";
 import { OpinionItem } from "./opinion-item";
 import { TickerHeader } from "./ticker-header";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 describe("ticker detail header", () => {
   it("separates cumulative, latest, and change context while keeping absolute counts", () => {
@@ -28,9 +32,29 @@ describe("ticker detail header", () => {
     expect(screen.getByText("최근 변화")).toBeInTheDocument();
     expect(screen.getByText("새 주장")).toBeInTheDocument();
     expect(screen.getByText("5명 분석가가 언급")).toBeInTheDocument();
+    expect(screen.getByText("현재 종합 신호")).toBeInTheDocument();
+    expect(screen.getByText("긍정 신호")).toBeInTheDocument();
+    expect(screen.getByText("신호 이후 시장 반응")).toBeInTheDocument();
+    expect(screen.getByText("기준가 $282.12")).toBeInTheDocument();
+    expect(screen.getByText("최근 종가 $262.89")).toBeInTheDocument();
+    expect(screen.getByText("-6.8%")).toBeInTheDocument();
+    expect(screen.getByText("1개월 결과")).toBeInTheDocument();
+    expect(screen.getByText("평가 중")).toBeInTheDocument();
     expect(screen.getByText("47")).toBeInTheDocument();
     expect(screen.getByText("38")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
+  });
+
+  it("explains when a ticker has no active consensus signal", () => {
+    const ticker = getFixtureTickerDetail("COHR");
+    expect(ticker).toBeDefined();
+
+    render(<TickerHeader ticker={{ ...ticker!, signalPerformance: null }} />);
+
+    expect(screen.getByText("활성 신호 없음")).toBeInTheDocument();
+    expect(
+      screen.getByText("최소 2명의 방향성 의견과 2/3 합의가 필요합니다."),
+    ).toBeInTheDocument();
   });
 });
 

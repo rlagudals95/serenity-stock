@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { defaultTickerQuery } from "./query";
@@ -33,7 +33,7 @@ const row: TickerOverview = {
 };
 
 describe("TickerOverviewPage", () => {
-  it("identifies all tracked analysts and uses the latest source timestamp", () => {
+  it("puts verified candidates first and keeps source context secondary", () => {
     render(
       <TickerOverviewPage
         query={defaultTickerQuery}
@@ -43,8 +43,37 @@ describe("TickerOverviewPage", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "투자 관점 인텔리전스" }),
+      screen.getByRole("heading", {
+        name: "주식 인플루언서 픽, 실제 결과를 추적합니다",
+      }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "검증된 후보" }),
+    ).toHaveAttribute("href", "/tickers");
+    expect(
+      screen.getByRole("link", { name: "관심 급증" }),
+    ).toHaveAttribute("href", "/tickers?view=momentum");
+    expect(
+      screen.getByRole("link", { name: "리스크·방향 전환" }),
+    ).toHaveAttribute("href", "/tickers?view=changes");
+    expect(
+      screen.getByRole("link", { name: "전체 종목" }),
+    ).toHaveAttribute("href", "/tickers?view=all");
+    expect(
+      screen.queryByRole("heading", { name: "우선 확인할 변화" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("검토 필요"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "이들이 지금 보는 종목" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("과거 적중 이력과 완료 표본을 함께 봅니다."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("추적 소스 10명"));
+
     expect(
       screen.getByRole("link", { name: "@aleabitoreddit" }),
     ).toHaveAttribute("href", "https://x.com/aleabitoreddit");
@@ -75,11 +104,11 @@ describe("TickerOverviewPage", () => {
     expect(
       screen.getByRole("link", { name: "@ChitChatStocks" }),
     ).toHaveAttribute("href", "https://x.com/ChitChatStocks");
-    expect(screen.getByText("추적 중인 분석가 10명")).toBeInTheDocument();
     expect(screen.getByText(/유료 구독.*이해상충/)).toBeInTheDocument();
     expect(screen.getByText(/Shay 본인이나 관련 회사와 제휴/)).toBeInTheDocument();
     expect(screen.getByText(/감사를 받은 운용 성과가 아닙니다/)).toBeInTheDocument();
     expect(screen.getByText(/2026.*기준/)).toBeInTheDocument();
     expect(screen.queryByText(/17:02 KST/)).not.toBeInTheDocument();
   });
+
 });

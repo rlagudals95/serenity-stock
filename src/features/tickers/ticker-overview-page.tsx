@@ -1,17 +1,19 @@
 import {
-  CircleDotDashed,
   ExternalLink,
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
+import Link from "next/link";
 
 import { analystProfiles } from "./analysts";
-import { formatKstDate } from "./format";
+import { buildProofOverview } from "./proof-model";
 import { TickerControls } from "./ticker-controls";
-import { TickerTable } from "./ticker-table";
+import { TickerProofHero } from "./ticker-proof-hero";
+import { TickerTable, type TickerPagination } from "./ticker-table";
 import type {
   AnalystProfile,
   TickerOverview,
+  TickerProofOverview,
   TickerQuery,
 } from "./types";
 
@@ -20,11 +22,15 @@ export function TickerOverviewPage({
   query,
   totalCount,
   analysts = analystProfiles,
+  pagination,
+  proofOverview,
 }: {
   rows: TickerOverview[];
   query: TickerQuery;
   totalCount: number;
   analysts?: AnalystProfile[];
+  pagination?: TickerPagination;
+  proofOverview?: TickerProofOverview;
 }) {
   const latestMention = rows.reduce<string | null>((latest, row) => {
     if (!latest || row.lastMentionedAt > latest) return row.lastMentionedAt;
@@ -33,29 +39,54 @@ export function TickerOverviewPage({
 
   return (
     <section className="overview-page">
-      <header className="page-heading">
-        <div>
-          <p className="eyebrow">
-            <CircleDotDashed aria-hidden="true" size={14} />
-            PUBLIC X INVESTMENT SIGNALS
-          </p>
-          <h1>투자 관점 인텔리전스</h1>
-          <p className="page-heading__meta">
-            활성 분석가 <strong>{analysts.length}</strong>명의 공개 게시글을
-            매일 분석 · 언급 종목 <strong>{totalCount}</strong>개
-          </p>
+      <TickerProofHero
+        analystCount={analysts.length}
+        latestMention={latestMention}
+        overview={proofOverview ?? buildProofOverview(rows)}
+        totalCount={totalCount}
+      />
+      <nav aria-label="종목 후보 보기" className="ticker-view-tabs">
+        {[
+          ["verified", "검증된 후보", "/tickers"],
+          ["momentum", "관심 급증", "/tickers?view=momentum"],
+          ["changes", "리스크·방향 전환", "/tickers?view=changes"],
+          ["all", "전체 종목", "/tickers?view=all"],
+        ].map(([view, label, href]) => (
+          <Link
+            aria-current={query.view === view ? "page" : undefined}
+            className={query.view === view ? "is-active" : undefined}
+            href={href}
+            key={view}
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
+      <section className="universe-section">
+        <header className="universe-section__heading">
+          <div>
+            <p className="section-kicker">CURRENT PICKS</p>
+            <h2>이들이 지금 보는 종목</h2>
+          </div>
+          <p>과거 적중 이력과 완료 표본을 함께 봅니다.</p>
+        </header>
+        <div className="table-workspace">
+          <TickerControls
+            query={query}
+            resultCount={pagination?.total ?? rows.length}
+          />
+          <TickerTable pagination={pagination} query={query} rows={rows} />
         </div>
-        <p className="page-heading__timestamp">
-          {latestMention
-            ? `${formatKstDate(latestMention)} KST 기준`
-            : "분석 데이터 없음"}
-        </p>
-      </header>
-      <section aria-label="추적 중인 분석가" className="analyst-directory">
-        <div className="analyst-directory__heading">
+      </section>
+      <details className="analyst-directory">
+        <summary className="analyst-directory__heading">
           <UsersRound aria-hidden="true" size={15} />
-          <span>추적 중인 분석가 {analysts.length}명</span>
-        </div>
+          <span>추적 소스 {analysts.length}명</span>
+          <span className="analyst-directory__preview">
+            {analysts.map((analyst) => analyst.name).join(" · ")}
+          </span>
+          <span className="analyst-directory__toggle">목록 보기</span>
+        </summary>
         <div className="analyst-profile-grid">
           {analysts.map((analyst) => (
             <article
@@ -103,11 +134,7 @@ export function TickerOverviewPage({
             ) : null}
           </p>
         </div>
-      </section>
-      <div className="table-workspace">
-        <TickerControls query={query} />
-        <TickerTable query={query} rows={rows} />
-      </div>
+      </details>
     </section>
   );
 }

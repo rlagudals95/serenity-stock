@@ -1,9 +1,22 @@
-import { applyTickerQuery, parseTickerQuery } from "@/features/tickers/query";
+import { cookies } from "next/headers";
+
+import {
+  applyTickerQuery,
+  hasPublicTickerIdentity,
+  paginateTickerRows,
+  parseTickerQuery,
+} from "@/features/tickers/query";
 import {
   getAnalystProfiles,
+  getTickerProofOverview,
   getTickerOverviewRows,
 } from "@/features/tickers/repository";
 import { TickerOverviewPage } from "@/features/tickers/ticker-overview-page";
+import {
+  applyWatchlistOverrides,
+  parseWatchlistOverrides,
+  WATCHLIST_COOKIE,
+} from "@/features/tickers/watchlist-preferences";
 
 export const dynamic = "force-dynamic";
 
@@ -20,18 +33,28 @@ export default async function TickersPage({
   }
 
   const query = parseTickerQuery(params);
-  const [allRows, analysts] = await Promise.all([
+  const [allRows, analysts, cookieStore] = await Promise.all([
     getTickerOverviewRows(),
     getAnalystProfiles(),
+    cookies(),
   ]);
-  const rows = applyTickerQuery(allRows, query);
+  const rowsWithPreferences = applyWatchlistOverrides(
+    allRows,
+    parseWatchlistOverrides(cookieStore.get(WATCHLIST_COOKIE)?.value),
+  );
+  const proofOverview = await getTickerProofOverview(rowsWithPreferences);
+  const filteredRows = applyTickerQuery(rowsWithPreferences, query);
+  const pagination = paginateTickerRows(filteredRows, query.page, 30);
+  const publicCount = rowsWithPreferences.filter(hasPublicTickerIdentity).length;
 
   return (
     <TickerOverviewPage
-      query={query}
-      rows={rows}
-      totalCount={allRows.length}
+      query={{ ...query, page: pagination.page }}
+      rows={pagination.rows}
+      totalCount={publicCount}
       analysts={analysts}
+      pagination={pagination}
+      proofOverview={proofOverview}
     />
   );
 }

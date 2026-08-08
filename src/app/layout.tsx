@@ -1,22 +1,9 @@
-import { Fragment_Mono, Gothic_A1 } from "next/font/google";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
 
 import { AppShell } from "@/components/app-shell";
 
 import "./globals.css";
-
-const gothic = Gothic_A1({
-  variable: "--font-gothic",
-  weight: ["400", "500", "600", "700"],
-  preload: false,
-});
-
-const fragment = Fragment_Mono({
-  variable: "--font-data",
-  subsets: ["latin"],
-  weight: "400",
-});
 
 const title = "Public Investor Intelligence";
 const description =
@@ -53,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html className={`${gothic.variable} ${fragment.variable}`} lang="ko">
+    <html lang="ko">
       <body>
         <AppShell>{children}</AppShell>
       </body>

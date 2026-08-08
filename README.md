@@ -46,6 +46,7 @@ TELEGRAM_BOT_TOKEN=REPLACE_ME
 TELEGRAM_CHAT_ID=REPLACE_ME
 DEEPSEEK_API_KEY=REPLACE_ME
 DEEPSEEK_MODEL=deepseek-v4-flash
+FINNHUB_API_KEY=
 SERENITY_INGEST_MAX_POSTS=1000
 SERENITY_SYNC_MAX_POSTS=100
 SERENITY_ANALYSIS_BATCH_SIZE=25
@@ -57,6 +58,41 @@ SERENITY_BACKFILL_MAX_POSTS=700
 keys**에서 생성합니다. 이 값은 Next.js 서버에서만 읽으며 브라우저 번들에는
 포함되지 않습니다. `.env.local`을 커밋하거나 키를 `NEXT_PUBLIC_` 변수에
 넣지 마세요.
+
+종목 테이블은 최근 20거래일 가격 추세와 종가를 먼저 보여주고, 현재 종합
+신호, 신호 이후 수익률, 1개월 방향 결과를 함께 표시합니다. 화면 요청에서
+외부 시세 API를 직접 호출하지 않으며, DB가 준비되면
+`ticker_signal_performance`와 `market_daily_prices`에 적재된 일봉 결과를
+읽습니다. 기존 Nasdaq/Finnhub 지연 시세 adapter와 API route는 가격 공급자
+비교 검증용으로 남아 있지만 핵심 화면에서는 사용하지 않습니다.
+
+### Signal performance foundation
+
+최근 거래가는 화면의 보조 정보이며, 핵심 신호는 **인플루언서 종합의견이
+형성된 뒤 실제 주가 방향과 일치했는지**입니다. Release 0 계산 검증과 Release
+1 데이터 기반은 [`PRD-signal-performance.md`](./PRD-signal-performance.md)를
+기준으로 합니다.
+
+- 분석가별 최신 유효 방향성 의견 한 표만 사용합니다.
+- 일반 중립·혼합 게시물은 기존 표를 지우지 않으며, 명시적인
+  `stance_change`만 표를 해제합니다.
+- 최소 2명 참여와 정확한 `2/3` 합의로 긍정·부정 신호를 생성합니다.
+- 신호 다음 거래일 시가를 기준가로 삼고 5·20·60 거래일 종가 성과를
+  `aligned`, `flat`, `opposed`로 판정합니다.
+- 일봉 저장과 계산 모델은 가격 공급자에 독립적입니다. Release 0의 외부
+  가격 조회는 방법론 검증에만 사용했으며 운영 화면이나 배치에는 연결하지
+  않았습니다.
+
+데이터 스키마는 `market_daily_prices`, `consensus_signal_events`,
+`signal_outcomes`와 `ticker_signal_performance` view로 구성됩니다. 아직 Hosted
+Supabase에는 새 migration을 적용하지 않았고, 운영 가격 공급자와 일일 동기화
+작업은 다음 단계에서 연결합니다.
+
+신호 view가 아직 배포되지 않은 환경에서는 COHR, AAOI, LITE, NVDA, ASTS의
+Release 0 검증 스냅샷을 fallback으로 사용합니다. 해당 값은 2026-07-31 기준
+실제 일봉과 시점 고정 신호 계산 결과이며 화면에도 기준일을 표시합니다. 검증
+범위 밖 종목이나 DB에 실제로 활성 신호가 없는 종목은 임의 수익률을 만들지
+않고 명시적인 미적재 상태를 표시합니다.
 
 `RETTIWT_API_KEY`는 유료 X API 키가 아니라 로그인된 X 계정의
 `auth_token`, `ct0`, `twid` 쿠키를 Rettiwt 형식으로 인코딩한 값입니다.

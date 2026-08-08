@@ -10,6 +10,7 @@ import {
   stanceLabels,
 } from "../format";
 import type { TickerDetail } from "../types";
+import { SignalPerformanceHero } from "../signal-performance";
 import { WatchlistButton } from "../watchlist-button";
 
 export function TickerHeader({ ticker }: { ticker: TickerDetail }) {
@@ -32,12 +33,15 @@ export function TickerHeader({ ticker }: { ticker: TickerDetail }) {
           {" "}
           <span className="ticker-title-company">{ticker.companyName}</span>
         </h1>
-        <WatchlistButton
-          initialActive={ticker.watchlisted}
-          ticker={ticker.ticker}
-          withLabel
-        />
+        <div className="ticker-title-actions">
+          <WatchlistButton
+            initialActive={ticker.watchlisted}
+            ticker={ticker.ticker}
+            withLabel
+          />
+        </div>
       </div>
+      <SignalPerformanceHero performance={ticker.signalPerformance} />
       <div className="ticker-context">
         <div className="context-item">
           <span className="context-item__label">누적 관점</span>

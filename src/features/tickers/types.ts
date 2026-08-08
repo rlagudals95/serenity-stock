@@ -60,9 +60,92 @@ export type TickerSort =
   | "lastMentionedAt"
   | "ticker";
 
+export type TickerView = "verified" | "momentum" | "changes" | "all";
+
+export interface MarketQuote {
+  price: number;
+  change: number;
+  changePercent: number;
+  previousClose: number;
+  asOf: string;
+  currency: "USD";
+  provider: "finnhub" | "nasdaq" | "fixture";
+}
+
+export type ConsensusSignalDirection = "positive" | "negative";
+
+export type SignalOutcomeStatus =
+  | "pending"
+  | "evaluable"
+  | "not_evaluable"
+  | "data_missing";
+
+export type SignalOutcomeVerdict =
+  | "aligned"
+  | "opposed"
+  | "flat"
+  | "pending"
+  | "not_evaluable"
+  | "data_missing";
+
+export interface PriceTrendPoint {
+  date: string;
+  close: number;
+}
+
+export interface TickerSignalPerformance {
+  direction: ConsensusSignalDirection;
+  signalAt: string;
+  directionalAnalystCount: number;
+  bullishAnalystCount: number;
+  bearishAnalystCount: number;
+  entrySessionDate: string | null;
+  entryAdjustedOpen: number | null;
+  latestPriceDate: string | null;
+  latestAdjustedClose: number | null;
+  rawReturnToDate: number | null;
+  outcome20dStatus: SignalOutcomeStatus | null;
+  outcome20dRawReturn: number | null;
+  outcome20dVerdict: SignalOutcomeVerdict | null;
+  calculationVersion: string;
+  priceProvider: string | null;
+  priceTrend: readonly PriceTrendPoint[];
+}
+
+export interface TickerProofMetrics {
+  currentBullishAnalystCount: number;
+  hitCount: number;
+  sampleSize: number;
+  hitRate: number | null;
+  wilsonScore: number | null;
+}
+
+export interface TickerProofCase {
+  ticker: string;
+  companyName: string;
+  analystName: string | null;
+  signalAt: string;
+  resultAt: string | null;
+  returnValue: number;
+  sourceUrl: string | null;
+  state: "completed" | "tracking";
+}
+
+export interface TickerProofOverview {
+  state: "completed" | "tracking" | "empty";
+  completedCount: number;
+  hitCount: number;
+  missCount: number;
+  latestResultAt: string | null;
+  cases: TickerProofCase[];
+}
+
 export interface TickerOverview {
   ticker: string;
   companyName: string;
+  marketQuote?: MarketQuote | null;
+  signalPerformance?: TickerSignalPerformance | null;
+  proofMetrics?: TickerProofMetrics | null;
   totalMentions: number;
   positiveCount: number;
   negativeCount: number;
@@ -83,12 +166,14 @@ export interface TickerOverview {
 export interface TickerQuery {
   q: string;
   watchlist: boolean;
+  view: TickerView;
   sentiment: CumulativeSentiment | "all";
   stance: Stance | "all";
   change: Exclude<ChangeType, null> | "none" | "all";
   period: "24h" | "7d" | "30d" | "all";
   sort: TickerSort;
   order: "asc" | "desc";
+  page: number;
 }
 
 export interface Claim {
