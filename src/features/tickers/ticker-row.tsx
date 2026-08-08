@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ArrowLeftRight,
-  CircleHelp,
-  MessageSquarePlus,
-  Sparkles,
-  TriangleAlert,
-} from "lucide-react";
+import { ArrowLeftRight, CircleHelp, MessageSquarePlus, Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
 import { StatusPill } from "@/components/ui/status-pill";
@@ -16,10 +10,10 @@ import {
   changeLabels,
   cumulativeSentimentLabels,
   formatKstDate,
-  formatRelativeTime,
   stanceLabels,
 } from "./format";
 import { SentimentDistribution } from "./sentiment-distribution";
+import { SignalPerformanceCompact } from "./signal-performance";
 import type { ChangeType, TickerOverview } from "./types";
 import { WatchlistButton } from "./watchlist-button";
 
@@ -29,9 +23,7 @@ const changeIcons = {
   new_risk: TriangleAlert,
   stance_change: ArrowLeftRight,
   unclear: CircleHelp,
-} satisfies Partial<
-  Record<Exclude<ChangeType, null | "repeat">, typeof Sparkles>
->;
+} satisfies Partial<Record<Exclude<ChangeType, null | "repeat">, typeof Sparkles>>;
 
 function sentimentTone(value: TickerOverview["cumulativeSentiment"]) {
   if (value === "positive") return "positive";
@@ -50,22 +42,18 @@ function stanceTone(value: TickerOverview["latestStance"]) {
 export function TickerRow({ row }: { row: TickerOverview }) {
   const href = `/tickers/${row.ticker}`;
   const analysts = row.analysts ?? [];
+  const sourceCount = analysts.filter((analyst) => analyst.latestSourceUrl).length;
+  const latestAnalyst = [...analysts].sort((left, right) =>
+    right.lastMentionedAt.localeCompare(left.lastMentionedAt),
+  )[0];
   const ChangeIcon = row.changeType
     ? changeIcons[row.changeType as keyof typeof changeIcons]
     : undefined;
-  const hasStanceConflict =
-    (row.cumulativeSentiment === "positive" &&
-      row.latestStance === "bearish") ||
-    (row.cumulativeSentiment === "negative" &&
-      row.latestStance === "bullish");
 
   return (
-    <tr className="ticker-row">
+    <tr className="ticker-row candidate-row">
       <td className="watchlist-column">
-        <WatchlistButton
-          initialActive={row.watchlisted}
-          ticker={row.ticker}
-        />
+        <WatchlistButton initialActive={row.watchlisted} ticker={row.ticker} />
       </td>
       <th className="ticker-column" scope="row">
         <Link
@@ -76,83 +64,78 @@ export function TickerRow({ row }: { row: TickerOverview }) {
           <span className="ticker-symbol">{row.ticker}</span>
           <span className="company-name">{row.companyName}</span>
         </Link>
-        <div className="ticker-link__analysts">
-          <AnalystPresence
-            analysts={analysts}
-            ticker={row.ticker}
-            variant="mobile"
-          />
-        </div>
       </th>
-      <td className="analyst-column">
+      <td className="interest-column" data-label="관심도">
+        <div className="candidate-interest">
+          <strong>7일 {row.mentions7d}회</strong>
+          <span>총 {row.totalMentions}회</span>
+          <SentimentDistribution compact row={row} />
+        </div>
+      </td>
+      <td className="analyst-column" data-label="인플루언서 관점">
         <AnalystPresence
           analysts={analysts}
+          compact
+          maxVisible={2}
           ticker={row.ticker}
           variant="desktop"
         />
-      </td>
-      <td className="number-column total-column">
-        <span className="mobile-total-label">총</span>{" "}
-        <span className="data-number data-number--strong">
-          {row.totalMentions}
-        </span>
-      </td>
-      <td className="distribution-column">
-        <SentimentDistribution row={row} />
-      </td>
-      <td className="sentiment-column">
-        <StatusPill tone={sentimentTone(row.cumulativeSentiment)}>
-          {cumulativeSentimentLabels[row.cumulativeSentiment]}
-        </StatusPill>
-      </td>
-      <td className="stance-column">
-        <span className="inline-status">
-          {hasStanceConflict ? (
-            <ArrowLeftRight
-              aria-label="누적 관점과 최근 의견 불일치"
-              className="conflict-icon"
-              size={14}
-            />
-          ) : null}
+        <div className="candidate-sentiment">
+          <StatusPill tone={sentimentTone(row.cumulativeSentiment)}>
+            {cumulativeSentimentLabels[row.cumulativeSentiment]}
+          </StatusPill>
           <StatusPill tone={stanceTone(row.latestStance)}>
             {stanceLabels[row.latestStance]}
           </StatusPill>
-        </span>
+        </div>
       </td>
-      <td className="change-column">
-        {row.changeType ? (
-          <span
-            className={`change-label change-label--${row.changeType}`}
-            title={`기준 게시글 ${formatKstDate(row.lastMentionedAt)}`}
-          >
-            {ChangeIcon ? <ChangeIcon aria-hidden="true" size={14} /> : null}
-            {changeLabels[row.changeType]}
+      <td className="change-column" data-label="최근 변화">
+        <div className="candidate-change">
+          {row.changeType ? (
+            <span
+              className={`change-label change-label--${row.changeType}`}
+              title={`기준 게시글 ${formatKstDate(row.lastMentionedAt)}`}
+            >
+              {ChangeIcon ? <ChangeIcon aria-hidden="true" size={14} /> : null}
+              {changeLabels[row.changeType]}
+            </span>
+          ) : (
+            <span className="empty-value">뚜렷한 변화 없음</span>
+          )}
+          {latestAnalyst?.latestClaim ? (
+            latestAnalyst.latestSourceUrl ? (
+              <a
+                className="candidate-change__claim"
+                href={latestAnalyst.latestSourceUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {latestAnalyst.latestClaim}
+              </a>
+            ) : (
+              <span className="candidate-change__claim">
+                {latestAnalyst.latestClaim}
+              </span>
+            )
+          ) : (
+            <span className="candidate-change__claim">최근 원문 요약 없음</span>
+          )}
+          <time dateTime={row.lastMentionedAt}>
+            {formatKstDate(row.lastMentionedAt, false)}
+          </time>
+        </div>
+      </td>
+      <td className="evidence-column" data-label="의견 근거">
+        <div className="candidate-evidence">
+          <strong>{sourceCount > 0 ? "원문 확인 가능" : "확인할 원문 없음"}</strong>
+          <span>원문 {sourceCount}개</span>
+          <span>
+            의견 참여 {row.signalPerformance?.directionalAnalystCount ?? 0}명
           </span>
-        ) : (
-          <span className="empty-value">-</span>
-        )}
+        </div>
       </td>
-      <td className="number-column period-column">
-        <span className="data-number">{row.mentions7d}</span>
-        <span className="number-divider">/</span>
-        <span className="data-number">{row.mentions30d}</span>
-      </td>
-      <td
-        className="relative-time-column"
-        title={formatKstDate(row.lastMentionedAt)}
-      >
-        {formatRelativeTime(row.lastMentionedAt)}
-      </td>
-      <td className="quality-column">
-        {row.reviewCount > 0 ? (
-          <span
-            aria-label={`검토 필요 ${row.reviewCount}건`}
-            className="quality-warning"
-            title={`검토 필요 ${row.reviewCount}건`}
-          >
-            <CircleHelp aria-hidden="true" size={15} />
-          </span>
-        ) : null}
+      <td className="market-validation-column" data-label="의견 후 주가">
+        <SignalPerformanceCompact performance={row.signalPerformance} />
       </td>
     </tr>
   );

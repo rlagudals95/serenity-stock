@@ -5,6 +5,7 @@
 > 관련 문서:
 > - `PRD-serenity-investment-intelligence-agent.md`
 > - `PRD-serenity-web-ui.md`
+> - `PRD-signal-performance.md`
 > - `UX-SPEC-serenity-investment-intelligence.md`
 
 ## 1. 기술 결정 요약
@@ -609,6 +610,47 @@ fail_analysis_job(
 - feedback: `(user_id, post_ticker_analysis_id)` 기준 `on conflict do update`
 
 SELECT 후 INSERT하는 패턴은 사용하지 않는다.
+
+### 5.8 Signal performance foundation
+
+종합의견 신호와 사후 성과는 `PRD-signal-performance.md`의 Release 1 규칙을
+따른다.
+
+#### `market_daily_prices`
+
+- 기본키: `(ticker, session_date)`
+- 가격 공급자의 raw OHLC와 조정 OHLC를 함께 보관한다.
+- 조정 시가는 공급자가 주지 않으면 `raw_open × adjusted_close / raw_close`로
+  산출한다.
+- 배치는 conflict key로 upsert하며, 일부 공급자 요청이 실패해도 기존 일봉을
+  삭제하지 않는다.
+
+#### `consensus_signal_events`
+
+- 분석가별 최신 유효 방향성 의견 한 표를 replay해 신호 전환 시점만 저장한다.
+- 일반 `neutral`, `mixed`, `unknown` 게시물은 기존 표를 해제하지 않는다.
+- 명시적으로 승인되거나 자동 확정된 `stance_change`만 기존 표를 해제한다.
+- 최소 2명 참여, 정확한 `2/3` 이상 합의일 때 `positive` 또는 `negative` 신호를
+  연다. 내부 판정에 반올림한 `0.67`을 사용하지 않는다.
+- 생성 당시 분석가 표, 분자·분모, 근거 분석 ID를 JSON snapshot으로 보존한다.
+
+#### `signal_outcomes`
+
+- 신호 발생 다음 거래일의 조정 시가를 기준가로 사용한다.
+- 5·20·60 거래일의 조정 종가 수익률을 계산한다.
+- 긍정 신호 후 상승 또는 부정 신호 후 하락이면 `aligned`, 절대 수익률이
+  flat band 안이면 `flat`, 반대면 `opposed`로 분류한다.
+- `(signal_event_id, horizon_sessions, methodology_version)`을 유일 키로 사용해
+  재계산을 멱등 처리한다.
+
+`ticker_signal_performance`는 `security_invoker = true` view이며, 기반 세
+테이블은 RLS를 활성화한다. 브라우저 역할은 읽기만 가능하고 수집·replay·성과
+계산 쓰기는 service role만 수행한다.
+
+가격 공급자는 아직 확정하지 않는다. 일일 장 마감 이후 공급자 독립 adapter가
+일봉을 적재하고, `replay_consensus_signals`, `calculate_signal_outcomes` 작업이
+순서대로 실행되는 구조를 목표로 한다. Release 0 검증에 사용한 외부 가격
+endpoint는 운영 의존성이 아니다.
 
 ## 6. Authentication and RLS
 

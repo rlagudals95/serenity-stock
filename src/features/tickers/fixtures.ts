@@ -5,13 +5,24 @@ import type {
   Stance,
   TickerDetail,
   TickerOverview,
+  TickerSignalPerformance,
   TrendPoint,
 } from "./types";
+import { getRelease0SignalPerformance } from "./signal-performance-r0";
 
 const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "COHR",
     companyName: "Coherent Corp.",
+    marketQuote: {
+      price: 102.64,
+      change: 2.18,
+      changePercent: 2.17,
+      previousClose: 100.46,
+      asOf: "2026-07-21T20:00:00.000Z",
+      currency: "USD",
+      provider: "fixture",
+    },
     totalMentions: 47,
     positiveCount: 38,
     negativeCount: 3,
@@ -30,6 +41,15 @@ const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "AAOI",
     companyName: "Applied Optoelectronics",
+    marketQuote: {
+      price: 31.82,
+      change: -0.74,
+      changePercent: -2.27,
+      previousClose: 32.56,
+      asOf: "2026-07-21T20:00:00.000Z",
+      currency: "USD",
+      provider: "fixture",
+    },
     totalMentions: 31,
     positiveCount: 20,
     negativeCount: 4,
@@ -48,6 +68,15 @@ const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "LITE",
     companyName: "Lumentum Holdings",
+    marketQuote: {
+      price: 84.15,
+      change: -1.36,
+      changePercent: -1.59,
+      previousClose: 85.51,
+      asOf: "2026-07-21T20:00:00.000Z",
+      currency: "USD",
+      provider: "fixture",
+    },
     totalMentions: 24,
     positiveCount: 5,
     negativeCount: 12,
@@ -66,6 +95,15 @@ const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "NVDA",
     companyName: "NVIDIA Corp.",
+    marketQuote: {
+      price: 178.92,
+      change: 1.47,
+      changePercent: 0.83,
+      previousClose: 177.45,
+      asOf: "2026-07-21T20:00:00.000Z",
+      currency: "USD",
+      provider: "fixture",
+    },
     totalMentions: 18,
     positiveCount: 10,
     negativeCount: 3,
@@ -84,6 +122,15 @@ const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "ASTS",
     companyName: "AST SpaceMobile",
+    marketQuote: {
+      price: 63.28,
+      change: 3.02,
+      changePercent: 5.01,
+      previousClose: 60.26,
+      asOf: "2026-07-21T20:00:00.000Z",
+      currency: "USD",
+      provider: "fixture",
+    },
     totalMentions: 15,
     positiveCount: 4,
     negativeCount: 6,
@@ -102,6 +149,15 @@ const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "RKLB",
     companyName: "Rocket Lab USA",
+    marketQuote: {
+      price: 48.73,
+      change: 0.12,
+      changePercent: 0.25,
+      previousClose: 48.61,
+      asOf: "2026-07-21T20:00:00.000Z",
+      currency: "USD",
+      provider: "fixture",
+    },
     totalMentions: 13,
     positiveCount: 8,
     negativeCount: 2,
@@ -120,6 +176,15 @@ const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "CRDO",
     companyName: "Credo Technology Group",
+    marketQuote: {
+      price: 124.37,
+      change: -2.05,
+      changePercent: -1.62,
+      previousClose: 126.42,
+      asOf: "2026-07-21T20:00:00.000Z",
+      currency: "USD",
+      provider: "fixture",
+    },
     totalMentions: 12,
     positiveCount: 7,
     negativeCount: 1,
@@ -138,6 +203,15 @@ const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
   {
     ticker: "GOOGL",
     companyName: "Alphabet Inc.",
+    marketQuote: {
+      price: 208.16,
+      change: 0,
+      changePercent: 0,
+      previousClose: 208.16,
+      asOf: "2026-07-21T20:00:00.000Z",
+      currency: "USD",
+      provider: "fixture",
+    },
     totalMentions: 9,
     positiveCount: 2,
     negativeCount: 2,
@@ -398,9 +472,110 @@ function fixtureAnalysts(
   ];
 }
 
+const signalPerformanceFixtures: Record<
+  string,
+  Omit<TickerSignalPerformance, "priceTrend"> | null
+> = {
+  COHR: {
+    direction: "positive",
+    signalAt: "2026-07-26T14:02:21.000Z",
+    directionalAnalystCount: 2,
+    bullishAnalystCount: 2,
+    bearishAnalystCount: 0,
+    entrySessionDate: "2026-07-27",
+    entryAdjustedOpen: 282.1199951171875,
+    latestPriceDate: "2026-07-31",
+    latestAdjustedClose: 262.8900146484375,
+    rawReturnToDate: -0.0681624159987746,
+    outcome20dStatus: "pending",
+    outcome20dRawReturn: null,
+    outcome20dVerdict: "pending",
+    calculationVersion: "signal-v1.1-r0",
+    priceProvider: "release-0-validation",
+  },
+  AAOI: {
+    direction: "positive",
+    signalAt: "2026-07-30T07:26:46.000Z",
+    directionalAnalystCount: 2,
+    bullishAnalystCount: 2,
+    bearishAnalystCount: 0,
+    entrySessionDate: "2026-07-30",
+    entryAdjustedOpen: 83.3499984741211,
+    latestPriceDate: "2026-07-31",
+    latestAdjustedClose: 94.31999969482422,
+    rawReturnToDate: 0.13161369431949232,
+    outcome20dStatus: "pending",
+    outcome20dRawReturn: null,
+    outcome20dVerdict: "pending",
+    calculationVersion: "signal-v1.1-r0",
+    priceProvider: "release-0-validation",
+  },
+  LITE: {
+    direction: "positive",
+    signalAt: "2026-07-26T14:02:21.000Z",
+    directionalAnalystCount: 2,
+    bullishAnalystCount: 2,
+    bearishAnalystCount: 0,
+    entrySessionDate: "2026-07-27",
+    entryAdjustedOpen: 767.8499755859375,
+    latestPriceDate: "2026-07-31",
+    latestAdjustedClose: 713.9400024414062,
+    rawReturnToDate: -0.07020899245766488,
+    outcome20dStatus: "pending",
+    outcome20dRawReturn: null,
+    outcome20dVerdict: "pending",
+    calculationVersion: "signal-v1.1-r0",
+    priceProvider: "release-0-validation",
+  },
+  NVDA: {
+    direction: "positive",
+    signalAt: "2026-07-27T16:41:06.000Z",
+    directionalAnalystCount: 4,
+    bullishAnalystCount: 3,
+    bearishAnalystCount: 1,
+    entrySessionDate: "2026-07-28",
+    entryAdjustedOpen: 195,
+    latestPriceDate: "2026-07-31",
+    latestAdjustedClose: 200.75,
+    rawReturnToDate: 0.029487179487179382,
+    outcome20dStatus: "pending",
+    outcome20dRawReturn: null,
+    outcome20dVerdict: "pending",
+    calculationVersion: "signal-v1.1-r0",
+    priceProvider: "release-0-validation",
+  },
+  ASTS: {
+    direction: "positive",
+    signalAt: "2026-07-24T14:42:00.000Z",
+    directionalAnalystCount: 2,
+    bullishAnalystCount: 2,
+    bearishAnalystCount: 0,
+    entrySessionDate: "2026-07-27",
+    entryAdjustedOpen: 56.43000030517578,
+    latestPriceDate: "2026-07-31",
+    latestAdjustedClose: 58.97999954223633,
+    rawReturnToDate: 0.04518871563476945,
+    outcome20dStatus: "pending",
+    outcome20dRawReturn: null,
+    outcome20dVerdict: "pending",
+    calculationVersion: "signal-v1.1-r0",
+    priceProvider: "release-0-validation",
+  },
+  RKLB: null,
+  CRDO: null,
+  GOOGL: null,
+};
+
 export const tickerOverviewFixtures: TickerOverview[] =
   baseTickerOverviewFixtures.map((row) => ({
     ...row,
+    signalPerformance: signalPerformanceFixtures[row.ticker]
+      ? {
+          ...signalPerformanceFixtures[row.ticker],
+          priceTrend:
+            getRelease0SignalPerformance(row.ticker)?.priceTrend ?? [],
+        } as TickerSignalPerformance
+      : null,
     analysts: fixtureAnalysts(row),
   }));
 

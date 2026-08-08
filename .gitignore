@@ -46,8 +46,10 @@ supabase/.branches/
 
 # Local agent artifacts
 .codex/
+.codex-tmp/
 .superpowers/
 docs/superpowers/
+*.inspect.ndjson
 
 # OS files
 .DS_Store

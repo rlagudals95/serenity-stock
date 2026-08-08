@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { defaultTickerQuery } from "./query";
@@ -33,7 +33,7 @@ const row: TickerOverview = {
 };
 
 describe("TickerOverviewPage", () => {
-  it("identifies all tracked analysts and uses the latest source timestamp", () => {
+  it("puts verified candidates first and keeps source context secondary", () => {
     render(
       <TickerOverviewPage
         query={defaultTickerQuery}
@@ -43,8 +43,37 @@ describe("TickerOverviewPage", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "투자 관점 인텔리전스" }),
+      screen.getByRole("heading", { name: "검증된 투자 후보" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "검증된 후보" }),
+    ).toHaveAttribute("href", "/tickers");
+    expect(
+      screen.getByRole("link", { name: "관심 급증" }),
+    ).toHaveAttribute("href", "/tickers?view=momentum");
+    expect(
+      screen.getByRole("link", { name: "리스크·방향 전환" }),
+    ).toHaveAttribute("href", "/tickers?view=changes");
+    expect(
+      screen.getByRole("link", { name: "전체 종목" }),
+    ).toHaveAttribute("href", "/tickers?view=all");
+    expect(
+      screen.queryByRole("heading", { name: "우선 확인할 변화" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("검토 필요"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "후보 비교" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /의견 근거.*확인 가능한 원문과 의견 참여 인원.*의견 후 주가.*2명 이상 의견이 모인 날부터의 수익률/,
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("추적 소스 7명"));
+
     expect(
       screen.getByRole("link", { name: "@aleabitoreddit" }),
     ).toHaveAttribute("href", "https://x.com/aleabitoreddit");
@@ -66,10 +95,10 @@ describe("TickerOverviewPage", () => {
     expect(
       screen.getByRole("link", { name: "@StockMKTNewz" }),
     ).toHaveAttribute("href", "https://x.com/StockMKTNewz");
-    expect(screen.getByText("추적 중인 분석가 7명")).toBeInTheDocument();
     expect(screen.getByText(/Shay 본인이나 관련 회사와 제휴/)).toBeInTheDocument();
     expect(screen.getByText(/감사를 받은 운용 성과가 아닙니다/)).toBeInTheDocument();
     expect(screen.getByText(/2026.*기준/)).toBeInTheDocument();
     expect(screen.queryByText(/17:02 KST/)).not.toBeInTheDocument();
   });
+
 });

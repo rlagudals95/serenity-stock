@@ -26,10 +26,39 @@ const overviewRow: OverviewViewRow = {
   needs_review_count: 0,
 };
 
+const signalPerformanceRow = {
+  ticker: "COHR",
+  company_name: "Coherent Corp.",
+  signal_event_id: 17,
+  signal_at: "2026-06-18T15:00:00.000Z",
+  direction: "positive",
+  directional_analyst_count: 3,
+  bullish_analyst_count: 2,
+  bearish_analyst_count: 1,
+  calculation_version: "signal-v1.1-r0",
+  analyst_snapshot: {},
+  entry_session_date: "2026-06-19",
+  entry_adjusted_open: "102.4",
+  latest_price_date: "2026-07-31",
+  latest_adjusted_close: "127.8",
+  raw_return_to_date: "0.248",
+  signed_return_to_date: "0.248",
+  outcome_20d_status: "evaluable",
+  outcome_20d_raw_return: "0.184",
+  outcome_20d_signed_return: "0.184",
+  outcome_20d_verdict: "aligned",
+  latest_price_provider: "fixture",
+  latest_price_fetched_at: "2026-08-01T00:00:00.000Z",
+};
+
 describe("mapOverviewRow", () => {
   it("normalizes nullable view fields and database numbers for the UI contract", () => {
     expect(
-      mapOverviewRow({ ...overviewRow, is_watchlisted: true }),
+      mapOverviewRow(
+        { ...overviewRow, is_watchlisted: true },
+        [],
+        signalPerformanceRow,
+      ),
     ).toMatchObject({
       ticker: "COHR",
       totalMentions: 47,
@@ -37,6 +66,34 @@ describe("mapOverviewRow", () => {
       latestStance: "unknown",
       changeType: null,
       watchlisted: true,
+      signalPerformance: {
+        direction: "positive",
+        signalAt: "2026-06-18T15:00:00.000Z",
+        directionalAnalystCount: 3,
+        bullishAnalystCount: 2,
+        bearishAnalystCount: 1,
+        entryAdjustedOpen: 102.4,
+        latestAdjustedClose: 127.8,
+        rawReturnToDate: 0.248,
+        outcome20dVerdict: "aligned",
+      },
+    });
+  });
+
+  it("uses the verified Release 0 snapshot when the signal view is not deployed", () => {
+    const result = mapOverviewRow(overviewRow);
+
+    expect(result.signalPerformance).toMatchObject({
+      direction: "positive",
+      entryAdjustedOpen: 282.1199951171875,
+      latestAdjustedClose: 262.8900146484375,
+      rawReturnToDate: -0.0681624159987746,
+      priceProvider: "release-0-validation",
+    });
+    expect(result.signalPerformance?.priceTrend).toHaveLength(20);
+    expect(result.signalPerformance?.priceTrend.at(-1)).toEqual({
+      date: "2026-07-31",
+      close: 262.8900146484375,
     });
   });
 

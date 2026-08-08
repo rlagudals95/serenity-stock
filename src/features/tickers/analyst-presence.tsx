@@ -24,6 +24,8 @@ interface AnalystPresenceProps {
   analysts: AnalystSnapshot[];
   ticker: string;
   variant: "desktop" | "mobile";
+  compact?: boolean;
+  maxVisible?: number;
 }
 
 const VIEWPORT_MARGIN = 12;
@@ -52,6 +54,8 @@ export function AnalystPresence({
   analysts,
   ticker,
   variant,
+  compact = false,
+  maxVisible,
 }: AnalystPresenceProps) {
   const hasAnalysts = analysts.length > 0;
   const [popoverState, setPopoverState] = useState({
@@ -75,7 +79,7 @@ export function AnalystPresence({
   const descriptionId = useId();
   const model = buildAnalystPresenceModel(
     analysts,
-    variant === "desktop" ? 3 : 2,
+    maxVisible ?? (variant === "desktop" ? 3 : 2),
   );
   const visibleAnalystDescription = model.visible
     .map(
@@ -251,7 +255,9 @@ export function AnalystPresence({
 
   return (
     <div
-      className={`analyst-presence analyst-presence--${variant}`}
+      className={`analyst-presence analyst-presence--${variant} ${
+        compact ? "is-compact" : ""
+      }`}
       data-variant={variant}
     >
       <button
@@ -300,13 +306,26 @@ export function AnalystPresence({
             </span>
           ) : null}
         </span>
+        {compact ? (
+          <span className="analyst-presence__names">
+            {model.visible.map((analyst) => analyst.name).join(" · ")}
+            {model.hiddenCount > 0 ? ` 외 ${model.hiddenCount}명` : ""}
+          </span>
+        ) : null}
         <span className="analyst-presence__summary">
           {variant === "desktop" ? (
-            <span className="analyst-presence__counts">
-              <span>긍정 {model.counts.bullish}</span>
-              <span>부정 {model.counts.bearish}</span>
-              <span>기타 {model.counts.other}</span>
-            </span>
+            compact ? (
+              <span className="analyst-presence__counts">
+                긍정 {model.counts.bullish} · 부정 {model.counts.bearish} · 기타{" "}
+                {model.counts.other}
+              </span>
+            ) : (
+              <span className="analyst-presence__counts">
+                <span>긍정 {model.counts.bullish}</span>
+                <span>부정 {model.counts.bearish}</span>
+                <span>기타 {model.counts.other}</span>
+              </span>
+            )
           ) : null}
           <span className="analyst-presence__comparison">
             {analystComparisonLabels[model.comparison]}

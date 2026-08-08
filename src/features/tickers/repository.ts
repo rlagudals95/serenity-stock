@@ -12,12 +12,16 @@ import type {
   CumulativeSentiment,
   Opinion,
   ResearchItem,
+  SignalOutcomeStatus,
+  SignalOutcomeVerdict,
   Stance,
   TickerDetail,
   TickerOverview,
+  TickerSignalPerformance,
   TrendPoint,
 } from "./types";
 import { analystProfiles as analystProfileFixtures } from "./analysts";
+import { getRelease0SignalPerformance } from "./signal-performance-r0";
 
 type DatabaseNumber = number | string | null | undefined;
 
@@ -84,6 +88,37 @@ export interface AnalystSummaryViewRow {
   latest_source_url: string | null;
 }
 
+export interface SignalPerformanceViewRow {
+  ticker: string;
+  company_name: string;
+  signal_event_id: DatabaseNumber;
+  signal_at: string | null;
+  direction: string | null;
+  directional_analyst_count: DatabaseNumber;
+  bullish_analyst_count: DatabaseNumber;
+  bearish_analyst_count: DatabaseNumber;
+  calculation_version: string | null;
+  analyst_snapshot: unknown;
+  entry_session_date: string | null;
+  entry_adjusted_open: DatabaseNumber;
+  latest_price_date: string | null;
+  latest_adjusted_close: DatabaseNumber;
+  raw_return_to_date: DatabaseNumber;
+  signed_return_to_date: DatabaseNumber;
+  outcome_20d_status: string | null;
+  outcome_20d_raw_return: DatabaseNumber;
+  outcome_20d_signed_return: DatabaseNumber;
+  outcome_20d_verdict: string | null;
+  latest_price_provider: string | null;
+  latest_price_fetched_at: string | null;
+}
+
+export interface MarketDailyPriceViewRow {
+  ticker: string;
+  session_date: string;
+  adjusted_close: DatabaseNumber;
+}
+
 interface AnalystProfileRow {
   analyst_key: string;
   display_name: string;
@@ -114,10 +149,30 @@ const changes = new Set<Exclude<ChangeType, null>>([
   "repeat",
   "unclear",
 ]);
+const signalOutcomeStatuses = new Set<SignalOutcomeStatus>([
+  "pending",
+  "evaluable",
+  "not_evaluable",
+  "data_missing",
+]);
+const signalOutcomeVerdicts = new Set<SignalOutcomeVerdict>([
+  "aligned",
+  "opposed",
+  "flat",
+  "pending",
+  "not_evaluable",
+  "data_missing",
+]);
 
 function number(value: DatabaseNumber) {
   const normalized = Number(value ?? 0);
   return Number.isFinite(normalized) ? normalized : 0;
+}
+
+function nullableNumber(value: DatabaseNumber) {
+  if (value === null || value === undefined || value === "") return null;
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : null;
 }
 
 function stance(value: string | null): Stance {
@@ -130,9 +185,76 @@ function change(value: string | null): ChangeType {
     : null;
 }
 
+export function mapSignalPerformanceRow(
+  row?: SignalPerformanceViewRow,
+  priceRows: MarketDailyPriceViewRow[] = [],
+): TickerSignalPerformance | null {
+  if (
+    !row?.signal_at ||
+    (row.direction !== "positive" && row.direction !== "negative") ||
+    !row.calculation_version
+  ) {
+    return null;
+  }
+
+  const outcome20dStatus =
+    row.outcome_20d_status &&
+    signalOutcomeStatuses.has(row.outcome_20d_status as SignalOutcomeStatus)
+      ? (row.outcome_20d_status as SignalOutcomeStatus)
+      : null;
+  const outcome20dVerdict =
+    row.outcome_20d_verdict &&
+    signalOutcomeVerdicts.has(row.outcome_20d_verdict as SignalOutcomeVerdict)
+      ? (row.outcome_20d_verdict as SignalOutcomeVerdict)
+      : null;
+
+  return {
+    direction: row.direction,
+    signalAt: row.signal_at,
+    directionalAnalystCount: number(row.directional_analyst_count),
+    bullishAnalystCount: number(row.bullish_analyst_count),
+    bearishAnalystCount: number(row.bearish_analyst_count),
+    entrySessionDate: row.entry_session_date,
+    entryAdjustedOpen: nullableNumber(row.entry_adjusted_open),
+    latestPriceDate: row.latest_price_date,
+    latestAdjustedClose: nullableNumber(row.latest_adjusted_close),
+    rawReturnToDate: nullableNumber(row.raw_return_to_date),
+    outcome20dStatus,
+    outcome20dRawReturn: nullableNumber(row.outcome_20d_raw_return),
+    outcome20dVerdict,
+    calculationVersion: row.calculation_version,
+    priceProvider: row.latest_price_provider,
+    priceTrend: priceRows
+      .map((price) => ({
+        date: price.session_date,
+        close: nullableNumber(price.adjusted_close),
+      }))
+      .filter(
+        (price): price is { date: string; close: number } =>
+          price.close !== null,
+      )
+      .sort((left, right) => left.date.localeCompare(right.date))
+      .slice(-20),
+  };
+}
+
+function isSignalFoundationUnavailable(error: {
+  code?: string;
+  message?: string;
+}) {
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    error.message?.includes("ticker_signal_performance") ||
+    error.message?.includes("market_daily_prices")
+  );
+}
+
 export function mapOverviewRow(
   row: OverviewViewRow,
   analysts: AnalystSnapshot[] = [],
+  signalRow?: SignalPerformanceViewRow | null,
+  priceRows: MarketDailyPriceViewRow[] = [],
 ): TickerOverview {
   const positiveCount = number(row.positive_count);
   const negativeCount = number(row.negative_count);
@@ -163,6 +285,10 @@ export function mapOverviewRow(
     watchlisted: Boolean(row.is_watchlisted),
     reviewCount: number(row.needs_review_count),
     analysts,
+    signalPerformance:
+      signalRow === undefined
+        ? getRelease0SignalPerformance(row.ticker)
+        : mapSignalPerformanceRow(signalRow ?? undefined, priceRows),
   };
 }
 
@@ -182,7 +308,7 @@ export async function getTickerOverviewRows(): Promise<TickerOverview[]> {
   }
 
   const client = await supabaseClient();
-  const [overviewResult, analystResult] = await Promise.all([
+  const [overviewResult, analystResult, signalResult] = await Promise.all([
     client
       .from("ticker_overview")
       .select("*")
@@ -191,6 +317,7 @@ export async function getTickerOverviewRows(): Promise<TickerOverview[]> {
       .from("ticker_analyst_summary")
       .select("*")
       .order("last_mentioned_at", { ascending: false }),
+    client.from("ticker_signal_performance").select("*"),
   ]);
 
   if (overviewResult.error) {
@@ -199,12 +326,54 @@ export async function getTickerOverviewRows(): Promise<TickerOverview[]> {
   if (analystResult.error) {
     throw new Error(`Analyst summary query failed: ${analystResult.error.message}`);
   }
+  if (
+    signalResult.error &&
+    !isSignalFoundationUnavailable(signalResult.error)
+  ) {
+    throw new Error(
+      `Signal performance query failed: ${signalResult.error.message}`,
+    );
+  }
 
   const analystsByTicker = groupAnalysts(
     (analystResult.data ?? []) as AnalystSummaryViewRow[],
   );
+  const signalsByTicker = new Map(
+    ((signalResult.data ?? []) as SignalPerformanceViewRow[]).map((row) => [
+      row.ticker,
+      row,
+    ]),
+  );
+  let priceRows: MarketDailyPriceViewRow[] = [];
+  if (!signalResult.error) {
+    const tickers = ((overviewResult.data ?? []) as OverviewViewRow[]).map(
+      (row) => row.ticker,
+    );
+    const priceResult = await client
+      .from("market_daily_prices")
+      .select("ticker,session_date,adjusted_close")
+      .in("ticker", tickers)
+      .order("session_date", { ascending: false })
+      .limit(2000);
+    if (
+      priceResult.error &&
+      !isSignalFoundationUnavailable(priceResult.error)
+    ) {
+      throw new Error(`Market price query failed: ${priceResult.error.message}`);
+    }
+    priceRows = (priceResult.data ?? []) as MarketDailyPriceViewRow[];
+  }
+  const pricesByTicker = groupDailyPrices(priceRows);
+  const signalFoundationAvailable = !signalResult.error;
   return ((overviewResult.data ?? []) as OverviewViewRow[]).map((row) =>
-    mapOverviewRow(row, analystsByTicker.get(row.ticker) ?? []),
+    mapOverviewRow(
+      row,
+      analystsByTicker.get(row.ticker) ?? [],
+      signalFoundationAvailable
+        ? (signalsByTicker.get(row.ticker) ?? null)
+        : undefined,
+      pricesByTicker.get(row.ticker) ?? [],
+    ),
   );
 }
 
@@ -388,13 +557,30 @@ function groupAnalysts(rows: AnalystSummaryViewRow[]) {
   return grouped;
 }
 
+function groupDailyPrices(rows: MarketDailyPriceViewRow[]) {
+  const grouped = new Map<string, MarketDailyPriceViewRow[]>();
+  for (const row of rows) {
+    const current = grouped.get(row.ticker) ?? [];
+    current.push(row);
+    grouped.set(row.ticker, current);
+  }
+  return grouped;
+}
+
 export function buildSupabaseTickerDetail(
   rawOverview: OverviewViewRow,
   timeline: TimelineViewRow[],
   analystRows: AnalystSummaryViewRow[] = [],
+  signalRow?: SignalPerformanceViewRow | null,
+  priceRows: MarketDailyPriceViewRow[] = [],
 ): TickerDetail {
   const analysts = analystRows.map(mapAnalystSummaryRow);
-  const overview = mapOverviewRow(rawOverview, analysts);
+  const overview = mapOverviewRow(
+    rawOverview,
+    analysts,
+    signalRow,
+    priceRows,
+  );
   const opinions = timeline.map(mapOpinion);
   const first = timeline[0];
 
@@ -439,6 +625,8 @@ export async function getTickerDetail(
     { data: overviewData, error: overviewError },
     timelineResult,
     analystResult,
+    signalResult,
+    priceResult,
   ] =
     await Promise.all([
       client
@@ -457,6 +645,17 @@ export async function getTickerDetail(
         .select("*")
         .eq("ticker", normalized)
         .order("last_mentioned_at", { ascending: false }),
+      client
+        .from("ticker_signal_performance")
+        .select("*")
+        .eq("ticker", normalized)
+        .maybeSingle(),
+      client
+        .from("market_daily_prices")
+        .select("ticker,session_date,adjusted_close")
+        .eq("ticker", normalized)
+        .order("session_date", { ascending: false })
+        .limit(20),
     ]);
 
   if (overviewError) {
@@ -468,10 +667,34 @@ export async function getTickerDetail(
   if (analystResult.error) {
     throw new Error(`Ticker analyst query failed: ${analystResult.error.message}`);
   }
+  if (
+    signalResult.error &&
+    !isSignalFoundationUnavailable(signalResult.error)
+  ) {
+    throw new Error(
+      `Ticker signal performance query failed: ${signalResult.error.message}`,
+    );
+  }
+  if (
+    priceResult.error &&
+    !isSignalFoundationUnavailable(priceResult.error)
+  ) {
+    throw new Error(`Ticker price trend query failed: ${priceResult.error.message}`);
+  }
   if (!overviewData) return undefined;
 
   const rawOverview = overviewData as OverviewViewRow;
   const timeline = (timelineResult.data ?? []) as TimelineViewRow[];
   const analysts = (analystResult.data ?? []) as AnalystSummaryViewRow[];
-  return buildSupabaseTickerDetail(rawOverview, timeline, analysts);
+  const signal = signalResult.error
+    ? undefined
+    : (signalResult.data as SignalPerformanceViewRow | null);
+  const prices = (priceResult.data ?? []) as MarketDailyPriceViewRow[];
+  return buildSupabaseTickerDetail(
+    rawOverview,
+    timeline,
+    analysts,
+    signal,
+    prices,
+  );
 }

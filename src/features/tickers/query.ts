@@ -5,6 +5,7 @@ import type {
   TickerOverview,
   TickerQuery,
   TickerSort,
+  TickerView,
 } from "./types";
 
 const sentimentValues = new Set<CumulativeSentiment>([
@@ -37,16 +38,24 @@ const sortValues = new Set<TickerSort>([
   "lastMentionedAt",
   "ticker",
 ]);
+const viewValues = new Set<TickerView>([
+  "verified",
+  "momentum",
+  "changes",
+  "all",
+]);
 
 export const defaultTickerQuery: TickerQuery = {
   q: "",
   watchlist: false,
+  view: "verified",
   sentiment: "all",
   stance: "all",
   change: "all",
   period: "all",
   sort: "totalMentions",
   order: "desc",
+  page: 1,
 };
 
 export function getCumulativeSentiment({
@@ -99,6 +108,7 @@ export function parseTickerQuery(params: URLSearchParams): TickerQuery {
   return {
     q: params.get("q")?.trim() ?? "",
     watchlist: params.get("watchlist") === "true",
+    view: oneOf(params.get("view"), viewValues, "verified"),
     sentiment: oneOf(
       params.get("sentiment"),
       new Set([...sentimentValues, "all"] as const),
@@ -113,7 +123,39 @@ export function parseTickerQuery(params: URLSearchParams): TickerQuery {
     period,
     sort: oneOf(params.get("sort"), sortValues, "totalMentions"),
     order: params.get("order") === "asc" ? "asc" : "desc",
+    page: Math.max(1, Number.parseInt(params.get("page") ?? "1", 10) || 1),
   };
+}
+
+const unresolvedIdentityPatterns = [
+  "not a publicly traded",
+  "not publicly traded",
+  "ticker error",
+  "no official company name",
+];
+
+export function hasPublicTickerIdentity(row: TickerOverview) {
+  const name = row.companyName.toLocaleLowerCase();
+  return (
+    /^[A-Z][A-Z0-9.-]{0,9}$/.test(row.ticker) &&
+    !unresolvedIdentityPatterns.some((pattern) => name.includes(pattern))
+  );
+}
+
+function matchesView(row: TickerOverview, view: TickerView) {
+  if (view === "all") return true;
+  if (view === "changes") {
+    return row.changeType === "new_risk" || row.changeType === "stance_change";
+  }
+  if (view === "momentum") {
+    const analystCount = row.analysts?.length ?? 0;
+    const directionalCount = row.positiveCount + row.negativeCount;
+    return (
+      Math.max(analystCount, directionalCount) >= 2 &&
+      row.mentions7d > row.mentions30d / 4
+    );
+  }
+  return (row.signalPerformance?.directionalAnalystCount ?? 0) >= 2;
 }
 
 function matchesPeriod(
@@ -149,6 +191,8 @@ export function applyTickerQuery<T extends TickerOverview>(
         row.companyName.toLocaleLowerCase().includes(term);
 
       return (
+        hasPublicTickerIdentity(row) &&
+        matchesView(row, query.view) &&
         matchesSearch &&
         (!query.watchlist || row.watchlisted) &&
         (query.sentiment === "all" ||
@@ -164,7 +208,15 @@ export function applyTickerQuery<T extends TickerOverview>(
     .sort((left, right) => {
       let comparison = 0;
 
-      if (query.sort === "ticker") {
+      if (query.view === "changes" && query.sort === "totalMentions") {
+        comparison =
+          new Date(left.lastMentionedAt).getTime() -
+          new Date(right.lastMentionedAt).getTime();
+      } else if (query.view === "momentum" && query.sort === "totalMentions") {
+        comparison =
+          left.mentions7d - left.mentions30d / 4 -
+          (right.mentions7d - right.mentions30d / 4);
+      } else if (query.sort === "ticker") {
         comparison = left.ticker.localeCompare(right.ticker);
       } else if (query.sort === "lastMentionedAt") {
         comparison =
@@ -178,4 +230,23 @@ export function applyTickerQuery<T extends TickerOverview>(
         ? left.ticker.localeCompare(right.ticker)
         : comparison * direction;
     });
+}
+
+export function paginateTickerRows<T>(
+  rows: readonly T[],
+  requestedPage: number,
+  pageSize: number,
+) {
+  const total = rows.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, requestedPage), pageCount);
+  const start = (page - 1) * pageSize;
+
+  return {
+    rows: rows.slice(start, start + pageSize),
+    page,
+    pageCount,
+    pageSize,
+    total,
+  };
 }
