@@ -112,11 +112,40 @@ export interface TickerSignalPerformance {
   priceTrend: readonly PriceTrendPoint[];
 }
 
+export interface TickerProofMetrics {
+  currentBullishAnalystCount: number;
+  hitCount: number;
+  sampleSize: number;
+  hitRate: number | null;
+  wilsonScore: number | null;
+}
+
+export interface TickerProofCase {
+  ticker: string;
+  companyName: string;
+  analystName: string | null;
+  signalAt: string;
+  resultAt: string | null;
+  returnValue: number;
+  sourceUrl: string | null;
+  state: "completed" | "tracking";
+}
+
+export interface TickerProofOverview {
+  state: "completed" | "tracking" | "empty";
+  completedCount: number;
+  hitCount: number;
+  missCount: number;
+  latestResultAt: string | null;
+  cases: TickerProofCase[];
+}
+
 export interface TickerOverview {
   ticker: string;
   companyName: string;
   marketQuote?: MarketQuote | null;
   signalPerformance?: TickerSignalPerformance | null;
+  proofMetrics?: TickerProofMetrics | null;
   totalMentions: number;
   positiveCount: number;
   negativeCount: number;

@@ -577,6 +577,15 @@ export const tickerOverviewFixtures: TickerOverview[] =
         } as TickerSignalPerformance
       : null,
     analysts: fixtureAnalysts(row),
+    proofMetrics: {
+      currentBullishAnalystCount: fixtureAnalysts(row).filter(
+        (analyst) => analyst.latestStance === "bullish",
+      ).length,
+      hitCount: 0,
+      sampleSize: 0,
+      hitRate: null,
+      wilsonScore: null,
+    },
   }));
 
 function sourceUrl(
