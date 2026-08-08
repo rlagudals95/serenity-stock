@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/status-pill";
+import { TrackedExternalLink } from "@/lib/user-behavior-log/react/tracked-link";
 
 import {
   changeLabels,
@@ -20,15 +21,17 @@ import { MentionChart } from "./mention-chart";
 
 function SourceLink({ href, label = "X 원문" }: { href: string; label?: string }) {
   return (
-    <a
+    <TrackedExternalLink
       className="source-link"
+      eventName="source_link_opened"
       href={href}
+      metadata={{ surface: "ticker-detail" }}
       rel="noopener noreferrer"
       target="_blank"
     >
       {label}
       <ExternalLink aria-hidden="true" size={13} />
-    </a>
+    </TrackedExternalLink>
   );
 }
 

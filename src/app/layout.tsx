@@ -2,6 +2,10 @@ import { headers } from "next/headers";
 import type { Metadata } from "next";
 
 import { AppShell } from "@/components/app-shell";
+import {
+  AppBehaviorLoggerProvider,
+  BehaviorPageViewTracker,
+} from "@/lib/user-behavior-log/react/app-behavior-provider";
 
 import "./globals.css";
 
@@ -42,7 +46,10 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <AppShell>{children}</AppShell>
+        <AppBehaviorLoggerProvider>
+          <BehaviorPageViewTracker />
+          <AppShell>{children}</AppShell>
+        </AppBehaviorLoggerProvider>
       </body>
     </html>
   );

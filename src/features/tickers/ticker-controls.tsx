@@ -4,6 +4,8 @@ import { ChevronDown, Search, Star, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 
+import { appBehaviorLogger } from "@/lib/user-behavior-log/app-behavior-logger";
+
 import {
   changeLabels,
   cumulativeSentimentLabels,
@@ -25,6 +27,19 @@ export function TickerControls({
   const [isPending, startTransition] = useTransition();
 
   function update(name: string, value: string) {
+    void appBehaviorLogger.click({
+      eventName: "filter_applied",
+      path: pathname,
+      element: {
+        id: name,
+        type: "filter",
+      },
+      metadata: {
+        filter: name,
+        value: name === "q" ? (value ? "present" : "cleared") : value || "all",
+      },
+    });
+
     const next = new URLSearchParams(searchParams.toString());
     if (!value || value === "all" || value === "false") {
       next.delete(name);
