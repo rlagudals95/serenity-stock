@@ -1,9 +1,12 @@
 "use client";
 
 import { ArrowLeftRight, CircleHelp, MessageSquarePlus, Sparkles, TriangleAlert } from "lucide-react";
-import Link from "next/link";
 
 import { StatusPill } from "@/components/ui/status-pill";
+import {
+  TrackedExternalLink,
+  TrackedLink,
+} from "@/lib/user-behavior-log/react/tracked-link";
 
 import { AnalystPresence } from "./analyst-presence";
 import {
@@ -62,14 +65,16 @@ export function TickerRow({ row }: { row: TickerOverview }) {
         <WatchlistButton initialActive={row.watchlisted} ticker={row.ticker} />
       </td>
       <th className="ticker-column" scope="row">
-        <Link
+        <TrackedLink
           aria-label={`${row.ticker} ${row.companyName}`}
           className="ticker-link"
+          eventName="ticker_row_opened"
           href={href}
+          metadata={{ ticker: row.ticker }}
         >
           <span className="ticker-symbol">{row.ticker}</span>
           <span className="company-name">{row.companyName}</span>
-        </Link>
+        </TrackedLink>
       </th>
       <td className="interest-column" data-label="지금 모인 의견">
         <div className="candidate-interest">
@@ -112,14 +117,16 @@ export function TickerRow({ row }: { row: TickerOverview }) {
           )}
           {latestAnalyst?.latestClaim ? (
             latestAnalyst.latestSourceUrl ? (
-              <a
+              <TrackedExternalLink
                 className="candidate-change__claim"
+                eventName="source_link_opened"
                 href={latestAnalyst.latestSourceUrl}
+                metadata={{ surface: "ticker-table", ticker: row.ticker }}
                 rel="noopener noreferrer"
                 target="_blank"
               >
                 {latestAnalyst.latestClaim}
-              </a>
+              </TrackedExternalLink>
             ) : (
               <span className="candidate-change__claim">
                 {latestAnalyst.latestClaim}

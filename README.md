@@ -136,6 +136,16 @@ Steady-state 수집과 분석은 Supabase Edge Functions에서 실행됩니다. 
 7. 분석가별 최초 언급, 최근 관점, 관점 변화와 원문 링크 집계
 8. 종목 overview와 분석가별 비교 화면 갱신
 
+### User behavior log
+
+사용 행동은 외부 analytics 도구 없이 app-local UBL 모듈로 기록합니다. 현재
+`page_view`, `ticker_row_opened`, `source_link_opened`, `filter_applied` 이벤트를
+브라우저에 최대 200개 보관합니다. 이벤트 모델과 React helper는 sender 주입
+방식이라, 여러 세션 집계가 필요해지면 앱 adapter만 Supabase 저장 방식으로
+교체할 수 있습니다. 상세 계약과 확인 방법은
+[`src/lib/user-behavior-log/README.md`](./src/lib/user-behavior-log/README.md)를
+참고하세요.
+
 계정별 `analysis_post_types`로 분석 대상을 제한할 수 있습니다. App Economy
 Insights와 Brian Stoffel은 게시물은 모두 보관하지만 `original`만 분석합니다.
 

@@ -813,6 +813,10 @@ analysis_feedback(user_id, post_ticker_analysis_id)
 
 개인용 MVP에서는 외부 analytics 도구를 붙이지 않는다.
 
+1차 구현은 sender-injection 방식의 app-local UBL 모듈을 사용하며, 최근
+200개 이벤트만 브라우저에 보관한다. 여러 세션을 합쳐 분석할 필요가 생기면
+코어 API는 유지하고 sender를 Supabase table adapter로 교체한다.
+
 필요하면 다음 이벤트를 Supabase table에 기록한다.
 
 - ticker_row_opened

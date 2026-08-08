@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { readStoredBehaviorLogEvents } from "@/lib/user-behavior-log/app-behavior-logger";
+
 import { defaultTickerQuery } from "./query";
 import { TickerControls } from "./ticker-controls";
 
@@ -13,7 +15,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("TickerControls", () => {
-  beforeEach(() => replace.mockClear());
+  beforeEach(() => {
+    replace.mockClear();
+    localStorage.clear();
+    sessionStorage.clear();
+  });
 
   it("uses one functional advanced-filter disclosure on every viewport", () => {
     render(<TickerControls query={defaultTickerQuery} resultCount={5} />);
@@ -30,6 +36,16 @@ describe("TickerControls", () => {
       "/tickers?stance=bullish",
       { scroll: false },
     );
+    expect(readStoredBehaviorLogEvents()).toEqual([
+      expect.objectContaining({
+        eventName: "filter_applied",
+        path: "/tickers",
+        metadata: {
+          filter: "stance",
+          value: "bullish",
+        },
+      }),
+    ]);
   });
 
   it("announces the filtered result count", () => {
