@@ -199,9 +199,10 @@ describe("applyTickerQuery", () => {
     ]);
   });
 
-  it("shows only verified candidates by default", () => {
+  it("shows current positive consensus before performance history is available", () => {
     expect(applyTickerQuery(rows, {}).map((row) => row.ticker)).toEqual([
       "COHR",
+      "AAOI",
     ]);
   });
 
