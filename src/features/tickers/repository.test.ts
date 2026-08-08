@@ -6,6 +6,7 @@ import {
   mapTickerProofRow,
   type OverviewViewRow,
 } from "./repository";
+import type { AnalystSnapshot, Stance } from "./types";
 
 const overviewRow: OverviewViewRow = {
   ticker: "COHR",
@@ -52,7 +53,51 @@ const signalPerformanceRow = {
   latest_price_fetched_at: "2026-08-01T00:00:00.000Z",
 };
 
+function analystVote(
+  key: string,
+  latestStance: Stance,
+  lastMentionedAt: string,
+): AnalystSnapshot {
+  return {
+    key,
+    name: key,
+    username: key,
+    totalMentions: 20,
+    positiveCount: latestStance === "bullish" ? 20 : 0,
+    negativeCount: latestStance === "bearish" ? 20 : 0,
+    neutralCount: 0,
+    mixedCount: 0,
+    unknownCount: 0,
+    cumulativeSentiment: "insufficient",
+    latestStance,
+    latestClaim: `${key} latest claim`,
+    latestChangeType: "new_claim",
+    firstMentionedAt: "2026-06-01T00:00:00.000Z",
+    lastMentionedAt,
+    latestSourceUrl: `https://x.com/${key}/status/1`,
+  };
+}
+
 describe("mapOverviewRow", () => {
+  it("gives each analyst one current vote regardless of posting volume", () => {
+    const result = mapOverviewRow(overviewRow, [
+      analystVote("gene", "bullish", "2026-07-16T00:00:00.000Z"),
+      analystVote("brian", "bearish", "2026-07-17T00:00:00.000Z"),
+      analystVote("shay", "bullish", "2026-07-18T00:00:00.000Z"),
+    ]);
+
+    expect(result).toMatchObject({
+      totalMentions: 47,
+      positiveCount: 2,
+      negativeCount: 1,
+      neutralCount: 0,
+      mixedCount: 0,
+      cumulativeSentiment: "positive",
+      latestStance: "bullish",
+      changeType: "new_claim",
+    });
+  });
+
   it("normalizes ticker proof counts and rates", () => {
     expect(
       mapTickerProofRow({
@@ -99,7 +144,7 @@ describe("mapOverviewRow", () => {
     ).toMatchObject({
       ticker: "COHR",
       totalMentions: 47,
-      cumulativeSentiment: "positive",
+      cumulativeSentiment: "insufficient",
       latestStance: "unknown",
       changeType: null,
       watchlisted: true,

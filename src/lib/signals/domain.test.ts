@@ -39,8 +39,14 @@ describe("calculateConsensus", () => {
     expect(result.positiveShare).toBeCloseTo(2 / 3);
   });
 
-  it("requires at least two directional analysts", () => {
+  it("requires at least three directional analysts", () => {
     expect(calculateConsensus([baseOpinion]).state).toBe("insufficient");
+    expect(
+      calculateConsensus([
+        baseOpinion,
+        { ...baseOpinion, analysisId: 2, analystKey: "shay" },
+      ]).state,
+    ).toBe("insufficient");
   });
 
   it("returns mixed when neither direction reaches two thirds", () => {
@@ -66,6 +72,29 @@ describe("calculateConsensus", () => {
 });
 
 describe("applyOpinionToSnapshot", () => {
+  it("accepts a manually approved directional vote below the auto threshold", () => {
+    const next = applyOpinionToSnapshot(new Map(), {
+      ...baseOpinion,
+      stanceConfidence: 0.5,
+      reviewStatus: "approved",
+    });
+
+    expect(next.get("serenity")?.stance).toBe("bullish");
+  });
+
+  it("does not clear a vote for a low-confidence automatic stance change", () => {
+    const snapshot: ConsensusSnapshot = new Map([["serenity", baseOpinion]]);
+    const next = applyOpinionToSnapshot(snapshot, {
+      ...baseOpinion,
+      analysisId: 2,
+      stance: "neutral",
+      stanceConfidence: 0.5,
+      changeType: "stance_change",
+    });
+
+    expect(next.get("serenity")?.analysisId).toBe(1);
+  });
+
   it("keeps the prior directional vote for an ordinary neutral fact post", () => {
     const snapshot: ConsensusSnapshot = new Map([["serenity", baseOpinion]]);
 
@@ -123,7 +152,7 @@ describe("getSignalTransition", () => {
 });
 
 describe("replayConsensusSignals", () => {
-  it("creates one entry when a second analyst confirms the direction", () => {
+  it("creates one entry when a third analyst confirms the direction", () => {
     const result = replayConsensusSignals([
       { ...baseOpinion, ticker: "COHR" },
       {
@@ -136,8 +165,15 @@ describe("replayConsensusSignals", () => {
       {
         ...baseOpinion,
         analysisId: 3,
+        analystKey: "beth",
         ticker: "COHR",
         postedAt: "2026-07-03T12:00:00.000Z",
+      },
+      {
+        ...baseOpinion,
+        analysisId: 4,
+        ticker: "COHR",
+        postedAt: "2026-07-04T12:00:00.000Z",
         changeType: "repeat",
       },
     ]);
@@ -147,8 +183,8 @@ describe("replayConsensusSignals", () => {
       ticker: "COHR",
       signalType: "entry",
       direction: "positive",
-      triggerAnalysisId: 2,
-      directionalAnalysts: 2,
+      triggerAnalysisId: 3,
+      directionalAnalysts: 3,
     });
   });
 
@@ -207,9 +243,8 @@ describe("replayConsensusSignals", () => {
       {
         ...baseOpinion,
         analysisId: 3,
+        analystKey: "beth",
         ticker: "ASTS",
-        stance: "neutral",
-        changeType: "repeat",
         postedAt: "2026-07-03T12:00:00.000Z",
       },
       {
@@ -217,14 +252,22 @@ describe("replayConsensusSignals", () => {
         analysisId: 4,
         ticker: "ASTS",
         stance: "neutral",
-        changeType: "stance_change",
+        changeType: "repeat",
         postedAt: "2026-07-04T12:00:00.000Z",
+      },
+      {
+        ...baseOpinion,
+        analysisId: 5,
+        ticker: "ASTS",
+        stance: "neutral",
+        changeType: "stance_change",
+        postedAt: "2026-07-05T12:00:00.000Z",
       },
     ]);
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
-      endedAt: "2026-07-04T12:00:00.000Z",
+      endedAt: "2026-07-05T12:00:00.000Z",
       endedReason: "insufficient",
     });
     expect(result.finalStates.get("ASTS")?.state).toBe("insufficient");

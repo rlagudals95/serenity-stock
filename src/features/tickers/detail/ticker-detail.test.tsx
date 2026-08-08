@@ -31,7 +31,7 @@ describe("ticker detail header", () => {
     expect(screen.getByText("긍정 의견")).toBeInTheDocument();
     expect(screen.getByText("최근 변화")).toBeInTheDocument();
     expect(screen.getByText("새 주장")).toBeInTheDocument();
-    expect(screen.getByText("5명 분석가가 언급")).toBeInTheDocument();
+    expect(screen.getByText("4명 분석가가 언급")).toBeInTheDocument();
     expect(screen.getByText("현재 종합 신호")).toBeInTheDocument();
     expect(screen.getByText("긍정 신호")).toBeInTheDocument();
     expect(screen.getByText("신호 이후 시장 반응")).toBeInTheDocument();
@@ -41,8 +41,8 @@ describe("ticker detail header", () => {
     expect(screen.getByText("1개월 결과")).toBeInTheDocument();
     expect(screen.getByText("평가 중")).toBeInTheDocument();
     expect(screen.getByText("47")).toBeInTheDocument();
-    expect(screen.getByText("38")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
   });
 
   it("explains when a ticker has no active consensus signal", () => {
@@ -53,7 +53,7 @@ describe("ticker detail header", () => {
 
     expect(screen.getByText("활성 신호 없음")).toBeInTheDocument();
     expect(
-      screen.getByText("최소 2명의 방향성 의견과 2/3 합의가 필요합니다."),
+      screen.getByText("최소 3명의 방향성 의견과 2/3 합의가 필요합니다."),
     ).toBeInTheDocument();
   });
 });

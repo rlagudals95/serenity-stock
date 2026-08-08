@@ -73,11 +73,11 @@ export function getCumulativeSentiment({
 
   const positiveShare = positiveCount / directionalCount;
 
-  if (positiveShare >= 0.65) {
+  if (positiveShare >= 2 / 3) {
     return "positive";
   }
 
-  if (positiveShare <= 0.35) {
+  if (positiveShare <= 1 / 3) {
     return "negative";
   }
 

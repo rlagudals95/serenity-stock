@@ -44,10 +44,6 @@ export function TickerRow({ row }: { row: TickerOverview }) {
   const href = `/tickers/${row.ticker}`;
   const analysts = row.analysts ?? [];
   const sourceCount = analysts.filter((analyst) => analyst.latestSourceUrl).length;
-  const positiveAnalystCount =
-    row.signalPerformance?.bullishAnalystCount ??
-    row.proofMetrics?.currentBullishAnalystCount ??
-    analysts.filter((analyst) => analyst.latestStance === "bullish").length;
   const trackRecord = proofDisplay(row.proofMetrics);
   const latestAnalyst = [...analysts].sort((left, right) =>
     right.lastMentionedAt.localeCompare(left.lastMentionedAt),
@@ -74,9 +70,9 @@ export function TickerRow({ row }: { row: TickerOverview }) {
       <td className="interest-column" data-label="지금 모인 의견">
         <div className="candidate-interest">
           <strong>
-            긍정 {positiveAnalystCount}명 · 7일 {row.mentions7d}회
+            강세 {row.positiveCount}표 · 약세 {row.negativeCount}표
           </strong>
-          <span>총 {row.totalMentions}회</span>
+          <span>7일 {row.mentions7d}회 · 총 {row.totalMentions}회</span>
           <SentimentDistribution compact row={row} />
         </div>
       </td>

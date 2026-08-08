@@ -8,6 +8,7 @@ import type {
   TickerSignalPerformance,
   TrendPoint,
 } from "./types";
+import { getCumulativeSentiment } from "./query";
 import { getRelease0SignalPerformance } from "./signal-performance-r0";
 
 const baseTickerOverviewFixtures: Array<Omit<TickerOverview, "analysts">> = [
@@ -567,26 +568,52 @@ const signalPerformanceFixtures: Record<
 };
 
 export const tickerOverviewFixtures: TickerOverview[] =
-  baseTickerOverviewFixtures.map((row) => ({
-    ...row,
-    signalPerformance: signalPerformanceFixtures[row.ticker]
-      ? {
-          ...signalPerformanceFixtures[row.ticker],
-          priceTrend:
-            getRelease0SignalPerformance(row.ticker)?.priceTrend ?? [],
-        } as TickerSignalPerformance
-      : null,
-    analysts: fixtureAnalysts(row),
-    proofMetrics: {
-      currentBullishAnalystCount: fixtureAnalysts(row).filter(
-        (analyst) => analyst.latestStance === "bullish",
-      ).length,
-      hitCount: 0,
-      sampleSize: 0,
-      hitRate: null,
-      wilsonScore: null,
-    },
-  }));
+  baseTickerOverviewFixtures.map((row) => {
+    const analysts = fixtureAnalysts(row).filter(
+      (analyst) =>
+        analyst.latestStance === "bullish" ||
+        analyst.latestStance === "bearish",
+    );
+    const positiveCount = analysts.filter(
+      (analyst) => analyst.latestStance === "bullish",
+    ).length;
+    const negativeCount = analysts.filter(
+      (analyst) => analyst.latestStance === "bearish",
+    ).length;
+    const latestAnalyst = [...analysts].sort((left, right) =>
+      right.lastMentionedAt.localeCompare(left.lastMentionedAt),
+    )[0];
+
+    return {
+      ...row,
+      positiveCount,
+      negativeCount,
+      neutralCount: 0,
+      mixedCount: 0,
+      unknownCount: 0,
+      cumulativeSentiment: getCumulativeSentiment({
+        positiveCount,
+        negativeCount,
+      }),
+      latestStance: latestAnalyst?.latestStance ?? "unknown",
+      changeType: latestAnalyst?.latestChangeType ?? null,
+      signalPerformance: signalPerformanceFixtures[row.ticker]
+        ? {
+            ...signalPerformanceFixtures[row.ticker],
+            priceTrend:
+              getRelease0SignalPerformance(row.ticker)?.priceTrend ?? [],
+          } as TickerSignalPerformance
+        : null,
+      analysts,
+      proofMetrics: {
+        currentBullishAnalystCount: positiveCount,
+        hitCount: 0,
+        sampleSize: 0,
+        hitRate: null,
+        wilsonScore: null,
+      },
+    };
+  });
 
 function sourceUrl(
   ticker: string,

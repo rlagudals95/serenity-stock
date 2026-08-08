@@ -14,7 +14,7 @@ export function SentimentDistribution({
     ["negative", row.negativeCount],
   ] as const;
   const total = counts.reduce((sum, [, count]) => sum + count, 0);
-  const label = `긍정 ${row.positiveCount}건, 부정 ${row.negativeCount}건, 혼재 ${row.mixedCount}건, 중립 ${row.neutralCount}건, 판단 불가 ${row.unknownCount}건`;
+  const label = `강세 ${row.positiveCount}표, 약세 ${row.negativeCount}표, 혼재 ${row.mixedCount}표, 중립 ${row.neutralCount}표, 판단 불가 ${row.unknownCount}표`;
 
   return (
     <div className={`sentiment-cell ${compact ? "is-compact" : ""}`}>

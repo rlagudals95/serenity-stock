@@ -90,14 +90,21 @@ export interface ReplayedSignalEvent {
 }
 
 const defaultConsensusOptions = {
-  minimumAnalysts: 2,
+  minimumAnalysts: 3,
   threshold: 2 / 3,
   minimumConfidence: 0.75,
   ttlDays: 90,
 };
 
-function isApproved(opinion: ConsensusOpinion) {
-  return opinion.reviewStatus === "auto" || opinion.reviewStatus === "approved";
+function isCountable(
+  opinion: ConsensusOpinion,
+  minimumConfidence: number,
+) {
+  return (
+    opinion.reviewStatus === "approved" ||
+    (opinion.reviewStatus === "auto" &&
+      opinion.stanceConfidence >= minimumConfidence)
+  );
 }
 
 function isDirectional(stance: OpinionStance): stance is DirectionalStance {
@@ -122,12 +129,9 @@ export function applyOpinionToSnapshot(
   minimumConfidence = defaultConsensusOptions.minimumConfidence,
 ) {
   const next = new Map(snapshot);
-  if (!isApproved(opinion)) return next;
+  if (!isCountable(opinion, minimumConfidence)) return next;
 
-  if (
-    isDirectional(opinion.stance) &&
-    opinion.stanceConfidence >= minimumConfidence
-  ) {
+  if (isDirectional(opinion.stance)) {
     const current = next.get(opinion.analystKey);
     if (!current || isNewerOpinion(opinion, current)) {
       next.set(opinion.analystKey, opinion);
@@ -152,9 +156,8 @@ export function calculateConsensus(
 
   for (const opinion of opinions) {
     if (
-      !isApproved(opinion) ||
-      !isDirectional(opinion.stance) ||
-      opinion.stanceConfidence < settings.minimumConfidence
+      !isCountable(opinion, settings.minimumConfidence) ||
+      !isDirectional(opinion.stance)
     ) {
       continue;
     }

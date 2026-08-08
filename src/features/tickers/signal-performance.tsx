@@ -263,7 +263,7 @@ export function SignalPerformanceHero({
           <span className="signal-hero__label">현재 종합 신호</span>
           <strong>활성 신호 없음</strong>
         </div>
-        <p>최소 2명의 방향성 의견과 2/3 합의가 필요합니다.</p>
+        <p>최소 3명의 방향성 의견과 2/3 합의가 필요합니다.</p>
       </section>
     );
   }

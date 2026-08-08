@@ -22,11 +22,11 @@ const row: TickerOverview = {
     provider: "fixture",
   },
   totalMentions: 47,
-  positiveCount: 38,
-  negativeCount: 3,
-  neutralCount: 2,
-  mixedCount: 3,
-  unknownCount: 1,
+  positiveCount: 3,
+  negativeCount: 1,
+  neutralCount: 0,
+  mixedCount: 0,
+  unknownCount: 0,
   cumulativeSentiment: "positive",
   latestStance: "bullish",
   changeType: "new_claim",
@@ -147,10 +147,10 @@ describe("TickerTable", () => {
     expect(
       screen.getByRole("link", { name: /COHR Coherent Corp\./ }),
     ).toHaveAttribute("href", "/tickers/COHR");
-    expect(screen.getByText("긍정 3명 · 7일 8회")).toBeInTheDocument();
-    expect(screen.getByText("총 47회")).toBeInTheDocument();
-    expect(screen.getByText("+38")).toBeInTheDocument();
-    expect(screen.getByText("-3")).toBeInTheDocument();
+    expect(screen.getByText("강세 3표 · 약세 1표")).toBeInTheDocument();
+    expect(screen.getByText("7일 8회 · 총 47회")).toBeInTheDocument();
+    expect(screen.getByText("+3")).toBeInTheDocument();
+    expect(screen.getByText("-1")).toBeInTheDocument();
     expect(screen.getByText("긍정 우세")).toBeInTheDocument();
     expect(screen.getByText("긍정 의견")).toBeInTheDocument();
     expect(screen.getByText("새 주장")).toBeInTheDocument();
@@ -253,7 +253,7 @@ describe("TickerTable", () => {
 
     expect(
       screen.getByLabelText(
-        "긍정 38건, 부정 3건, 혼재 3건, 중립 2건, 판단 불가 1건",
+        "강세 3표, 약세 1표, 혼재 0표, 중립 0표, 판단 불가 0표",
       ),
     ).toBeInTheDocument();
   });
