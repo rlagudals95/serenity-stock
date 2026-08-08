@@ -43,7 +43,9 @@ describe("TickerOverviewPage", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "검증된 투자 후보" }),
+      screen.getByRole("heading", {
+        name: "주식 인플루언서 픽, 실제 결과를 추적합니다",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "검증된 후보" }),
@@ -64,12 +66,10 @@ describe("TickerOverviewPage", () => {
       screen.queryByText("검토 필요"),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "후보 비교" }),
+      screen.getByRole("heading", { name: "이들이 지금 보는 종목" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /의견 근거.*확인 가능한 원문과 의견 참여 인원.*의견 후 주가.*2명 이상 의견이 모인 날부터의 수익률/,
-      ),
+      screen.getByText("과거 적중 이력과 완료 표본을 함께 봅니다."),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("추적 소스 7명"));

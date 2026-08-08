@@ -8,6 +8,7 @@ import {
 } from "@/features/tickers/query";
 import {
   getAnalystProfiles,
+  getTickerProofOverview,
   getTickerOverviewRows,
 } from "@/features/tickers/repository";
 import { TickerOverviewPage } from "@/features/tickers/ticker-overview-page";
@@ -41,6 +42,7 @@ export default async function TickersPage({
     allRows,
     parseWatchlistOverrides(cookieStore.get(WATCHLIST_COOKIE)?.value),
   );
+  const proofOverview = await getTickerProofOverview(rowsWithPreferences);
   const filteredRows = applyTickerQuery(rowsWithPreferences, query);
   const pagination = paginateTickerRows(filteredRows, query.page, 30);
   const publicCount = rowsWithPreferences.filter(hasPublicTickerIdentity).length;
@@ -52,6 +54,7 @@ export default async function TickersPage({
       totalCount={publicCount}
       analysts={analysts}
       pagination={pagination}
+      proofOverview={proofOverview}
     />
   );
 }

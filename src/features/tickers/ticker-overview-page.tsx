@@ -6,12 +6,14 @@ import {
 import Link from "next/link";
 
 import { analystProfiles } from "./analysts";
-import { formatKstDate } from "./format";
+import { buildProofOverview } from "./proof-model";
 import { TickerControls } from "./ticker-controls";
+import { TickerProofHero } from "./ticker-proof-hero";
 import { TickerTable, type TickerPagination } from "./ticker-table";
 import type {
   AnalystProfile,
   TickerOverview,
+  TickerProofOverview,
   TickerQuery,
 } from "./types";
 
@@ -21,12 +23,14 @@ export function TickerOverviewPage({
   totalCount,
   analysts = analystProfiles,
   pagination,
+  proofOverview,
 }: {
   rows: TickerOverview[];
   query: TickerQuery;
   totalCount: number;
   analysts?: AnalystProfile[];
   pagination?: TickerPagination;
+  proofOverview?: TickerProofOverview;
 }) {
   const latestMention = rows.reduce<string | null>((latest, row) => {
     if (!latest || row.lastMentionedAt > latest) return row.lastMentionedAt;
@@ -35,26 +39,12 @@ export function TickerOverviewPage({
 
   return (
     <section className="overview-page">
-      <header className="page-heading">
-        <div>
-          <p className="eyebrow">INFLUENCER CONVICTION SCREEN</p>
-          <h1>검증된 투자 후보</h1>
-          <p className="page-heading__meta">
-            여러 인플루언서의 방향성 합의와 실제 시장 반응이 확인된 종목부터 비교하세요.
-          </p>
-        </div>
-        <div className="page-heading__status">
-          <span>
-            전체 <strong>{totalCount}</strong>개 종목 ·{" "}
-            <strong>{analysts.length}</strong>개 소스
-          </span>
-          <p className="page-heading__timestamp">
-            {latestMention
-              ? `${formatKstDate(latestMention)} KST 기준`
-              : "분석 데이터 없음"}
-          </p>
-        </div>
-      </header>
+      <TickerProofHero
+        analystCount={analysts.length}
+        latestMention={latestMention}
+        overview={proofOverview ?? buildProofOverview(rows)}
+        totalCount={totalCount}
+      />
       <nav aria-label="종목 후보 보기" className="ticker-view-tabs">
         {[
           ["verified", "검증된 후보", "/tickers"],
@@ -75,13 +65,10 @@ export function TickerOverviewPage({
       <section className="universe-section">
         <header className="universe-section__heading">
           <div>
-            <p className="section-kicker">SHORTLIST</p>
-            <h2>후보 비교</h2>
+            <p className="section-kicker">CURRENT PICKS</p>
+            <h2>이들이 지금 보는 종목</h2>
           </div>
-          <p>
-            의견 근거는 확인 가능한 원문과 의견 참여 인원, 의견 후 주가는 2명
-            이상 의견이 모인 날부터의 수익률입니다.
-          </p>
+          <p>과거 적중 이력과 완료 표본을 함께 봅니다.</p>
         </header>
         <div className="table-workspace">
           <TickerControls
