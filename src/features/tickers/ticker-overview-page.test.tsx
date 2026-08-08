@@ -72,7 +72,7 @@ describe("TickerOverviewPage", () => {
       screen.getByText("과거 적중 이력과 완료 표본을 함께 봅니다."),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("추적 소스 10명"));
+    fireEvent.click(screen.getByText("추적 소스 20명"));
 
     expect(
       screen.getByRole("link", { name: "@aleabitoreddit" }),
@@ -90,8 +90,8 @@ describe("TickerOverviewPage", () => {
       screen.getByRole("link", { name: "@Brian_Stoffel_" }),
     ).toHaveAttribute("href", "https://x.com/Brian_Stoffel_");
     expect(
-      screen.getByRole("link", { name: "@Ole_S_Hansen" }),
-    ).toHaveAttribute("href", "https://x.com/Ole_S_Hansen");
+      screen.queryByRole("link", { name: "@Ole_S_Hansen" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "@StockMKTNewz" }),
     ).toHaveAttribute("href", "https://x.com/StockMKTNewz");
@@ -104,6 +104,23 @@ describe("TickerOverviewPage", () => {
     expect(
       screen.getByRole("link", { name: "@ChitChatStocks" }),
     ).toHaveAttribute("href", "https://x.com/ChitChatStocks");
+    expect(
+      screen.getByRole("link", { name: "@RihardJarc" }),
+    ).toHaveAttribute("href", "https://x.com/RihardJarc");
+    expect(
+      screen.getByRole("link", { name: "@JonahLupton" }),
+    ).toHaveAttribute("href", "https://x.com/JonahLupton");
+    expect(
+      screen.getByRole("link", { name: "@RyanReeves_" }),
+    ).toHaveAttribute("href", "https://x.com/RyanReeves_");
+    expect(
+      screen.getByRole("link", { name: "@muddywatersre" }),
+    ).toHaveAttribute("href", "https://x.com/muddywatersre");
+    expect(screen.getAllByText("의견 소스")).toHaveLength(8);
+    expect(screen.getAllByText("근거·맥락")).toHaveLength(7);
+    expect(screen.getAllByText("뉴스·탐색")).toHaveLength(2);
+    expect(screen.getAllByText("리스크 검증")).toHaveLength(3);
+    expect(screen.getAllByText("종합의견 반영")).toHaveLength(8);
     expect(screen.getByText(/유료 구독.*이해상충/)).toBeInTheDocument();
     expect(screen.getByText(/Shay 본인이나 관련 회사와 제휴/)).toBeInTheDocument();
     expect(screen.getByText(/감사를 받은 운용 성과가 아닙니다/)).toBeInTheDocument();

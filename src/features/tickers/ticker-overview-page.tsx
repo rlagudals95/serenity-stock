@@ -12,10 +12,18 @@ import { TickerProofHero } from "./ticker-proof-hero";
 import { TickerTable, type TickerPagination } from "./ticker-table";
 import type {
   AnalystProfile,
+  SourceRole,
   TickerOverview,
   TickerProofOverview,
   TickerQuery,
 } from "./types";
+
+const sourceRoleLabels: Record<SourceRole, string> = {
+  opinion: "의견 소스",
+  context: "근거·맥락",
+  news: "뉴스·탐색",
+  risk: "리스크 검증",
+};
 
 export function TickerOverviewPage({
   rows,
@@ -95,7 +103,10 @@ export function TickerOverviewPage({
             >
               <header>
                 <div>
-                  <h2>{analyst.name}</h2>
+                  <div className="analyst-profile__title">
+                    <h2>{analyst.name}</h2>
+                    <span>{sourceRoleLabels[analyst.sourceRole]}</span>
+                  </div>
                   <a
                     href={`https://x.com/${analyst.username}`}
                     rel="noopener noreferrer"
@@ -108,6 +119,9 @@ export function TickerOverviewPage({
                 <span>{analyst.followerLabel}</span>
               </header>
               <p>{analyst.description}</p>
+              {analyst.consensusEligible ? (
+                <p className="analyst-profile__consensus">종합의견 반영</p>
+              ) : null}
               <ul aria-label={`${analyst.name} 주요 분석 분야`}>
                 {analyst.focusAreas.map((area) => (
                   <li key={area}>{area}</li>

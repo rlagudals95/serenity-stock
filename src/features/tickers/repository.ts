@@ -157,6 +157,8 @@ interface AnalystProfileRow {
   follower_label: string | null;
   description_ko: string;
   focus_areas: string[] | null;
+  source_role: AnalystProfile["sourceRole"];
+  consensus_eligible: boolean;
 }
 
 const sentiments = new Set<CumulativeSentiment>([
@@ -542,7 +544,7 @@ export async function getAnalystProfiles(): Promise<AnalystProfile[]> {
   const { data, error } = await client
     .from("analyst_profiles")
     .select(
-      "analyst_key,display_name,x_username,follower_label,description_ko,focus_areas",
+      "analyst_key,display_name,x_username,follower_label,description_ko,focus_areas,source_role,consensus_eligible",
     )
     .eq("active", true)
     .order("sort_order");
@@ -557,6 +559,8 @@ export async function getAnalystProfiles(): Promise<AnalystProfile[]> {
     followerLabel: row.follower_label ?? "공개 X 계정",
     description: row.description_ko,
     focusAreas: row.focus_areas ?? [],
+    sourceRole: row.source_role,
+    consensusEligible: row.consensus_eligible,
   }));
 }
 

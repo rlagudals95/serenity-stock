@@ -2,13 +2,14 @@
 
 성장주 분석가들의 공개 X 게시글에서 종목별 언급, 누적 관점,
 최근 의견과 변화 근거를 확인하고 분석가별 관점을 비교하는 개인용 투자
-리서치 도구입니다. 현재 Serenity, Shay Boloor, Beth Kindig,
-App Economy Insights, Brian Stoffel, Ole S Hansen, StockMKTNewz,
-Convequity, Gene Munster, Chit Chat Stocks까지 총 10개 공개 계정을 추적합니다.
+리서치 도구입니다. 2차 검증을 통과한 의견 8개, 근거·맥락 7개,
+뉴스·탐색 2개, 리스크 3개까지 총 20개 공개 계정을 역할별로 추적합니다.
 
 추가 후보 평가와 선정 근거는
 [`docs/research/2026-08-01-x-influencer-expansion.md`](docs/research/2026-08-01-x-influencer-expansion.md)에
-정리되어 있습니다.
+정리되어 있으며, 2차 검증과 최종 역할 분리는
+[`docs/research/2026-08-08-x-influencer-second-pass.md`](docs/research/2026-08-08-x-influencer-second-pass.md)를
+기준으로 합니다.
 
 ## Stack
 
@@ -73,7 +74,9 @@ keys**에서 생성합니다. 이 값은 Next.js 서버에서만 읽으며 브�
 1 데이터 기반은 [`PRD-signal-performance.md`](./PRD-signal-performance.md)를
 기준으로 합니다.
 
-- 분석가별 최신 유효 방향성 의견 한 표만 사용합니다.
+- `consensus_eligible=true`인 의견 소스 8개의 최신 유효 방향성 의견만
+  한 표씩 사용합니다. 근거·뉴스·리스크 소스는 종목 맥락에는 노출되지만
+  종합의견 표결에는 들어가지 않습니다.
 - 일반 중립·혼합 게시물은 기존 표를 지우지 않으며, 명시적인
   `stance_change`만 표를 해제합니다.
 - 최소 2명 참여와 정확한 `2/3` 합의로 긍정·부정 신호를 생성합니다.
@@ -136,8 +139,10 @@ Steady-state 수집과 분석은 Supabase Edge Functions에서 실행됩니다. 
 7. 분석가별 최초 언급, 최근 관점, 관점 변화와 원문 링크 집계
 8. 종목 overview와 분석가별 비교 화면 갱신
 
-계정별 `analysis_post_types`로 분석 대상을 제한할 수 있습니다. App Economy
-Insights와 Brian Stoffel은 게시물은 모두 보관하지만 `original`만 분석합니다.
+계정별 `analysis_post_types`로 분석 대상을 제한할 수 있습니다. 답글 비율이나
+인용 귀속 위험이 높은 소스는 게시물을 보관하더라도 `original`만 분석합니다.
+`source_role`은 `opinion`, `context`, `news`, `risk` 중 하나이며,
+`consensus_eligible`은 `opinion` 소스에만 허용됩니다.
 
 DeepSeek 출력은 Zod schema와 DB constraint를 모두 통과해야 저장됩니다.
 원문에 실제로 존재하지 않는 evidence는 제거하고 해당 분석을
@@ -241,7 +246,10 @@ insert into public.analyst_profiles (
   follower_label,
   description_ko,
   focus_areas,
-  sort_order
+  sort_order,
+  analysis_post_types,
+  source_role,
+  consensus_eligible
 )
 values (
   'new_analyst',
@@ -250,7 +258,10 @@ values (
   null,
   '공개 투자 관점 설명',
   array['AI 인프라'],
-  30
+  30,
+  array['original'],
+  'opinion',
+  true
 );
 ```
 

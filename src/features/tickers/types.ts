@@ -8,6 +8,8 @@ export type Stance = "bullish" | "bearish" | "mixed" | "neutral" | "unknown";
 
 export type AnalystKey = "serenity" | "shay_boloor" | (string & {});
 
+export type SourceRole = "opinion" | "context" | "news" | "risk";
+
 export type AnalystComparison =
   | "agreement"
   | "disagreement"
@@ -21,6 +23,8 @@ export interface AnalystProfile {
   followerLabel: string;
   description: string;
   focusAreas: string[];
+  sourceRole: SourceRole;
+  consensusEligible: boolean;
 }
 
 export interface AnalystSnapshot {
