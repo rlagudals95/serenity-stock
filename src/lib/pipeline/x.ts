@@ -288,15 +288,6 @@ export async function fetchRettiwtPostPage(
       compareSnowflakeIds(right.x_post_id, left.x_post_id)
     );
 
-  if (sinceId && !paginationToken && mapped.length > 0) {
-    const newestId = mapped[0].x_post_id;
-    if (compareSnowflakeIds(newestId, sinceId) < 0) {
-      throw new Error(
-        `Rettiwt timeline for @${username} is older than stored cursor ${sinceId}.`,
-      );
-    }
-  }
-
   const reachedSinceId = sinceId
     ? mapped.some((post) => compareSnowflakeIds(post.x_post_id, sinceId) <= 0)
     : false;
