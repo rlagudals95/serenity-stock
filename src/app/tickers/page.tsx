@@ -10,7 +10,11 @@ import {
   getAnalystProfiles,
   getTickerProofOverview,
   getTickerOverviewRows,
+  getTickerDetail,
 } from "@/features/tickers/repository";
+import { BriefingHome } from "@/features/tickers/briefing-home";
+import { buildTickerBrief } from "@/features/tickers/briefing-model";
+import { selectBriefingCandidates } from "@/features/tickers/briefing-selection";
 import { TickerOverviewPage } from "@/features/tickers/ticker-overview-page";
 import {
   applyWatchlistOverrides,
@@ -42,6 +46,18 @@ export default async function TickersPage({
     allRows,
     parseWatchlistOverrides(cookieStore.get(WATCHLIST_COOKIE)?.value),
   );
+  if (params.size === 0) {
+    const picks = selectBriefingCandidates(rowsWithPreferences);
+    const details = await Promise.allSettled(picks.map(({ row }) => getTickerDetail(row.ticker)));
+    return <BriefingHome
+      candidates={picks.map(({ row, recommendation }, i) => ({
+        ...buildTickerBrief(row, details[i].status === "fulfilled" ? details[i].value : undefined),
+        expectation: recommendation.evidence,
+        recommendation,
+      }))}
+      watched={rowsWithPreferences.filter(row => row.watchlisted && hasPublicTickerIdentity(row)).map(row => buildTickerBrief(row))}
+    />;
+  }
   const proofOverview = await getTickerProofOverview(rowsWithPreferences);
   const filteredRows = applyTickerQuery(rowsWithPreferences, query);
   const pagination = paginateTickerRows(filteredRows, query.page, 30);

@@ -9,6 +9,7 @@ import { analystProfiles } from "./analysts";
 import { buildProofOverview } from "./proof-model";
 import { TickerControls } from "./ticker-controls";
 import { TickerProofHero } from "./ticker-proof-hero";
+import { DataFreshness } from "./briefing-ui";
 import { TickerTable, type TickerPagination } from "./ticker-table";
 import type {
   AnalystProfile,
@@ -39,6 +40,7 @@ export function TickerOverviewPage({
   analysts?: AnalystProfile[];
   pagination?: TickerPagination;
   proofOverview?: TickerProofOverview;
+  topCandidates?: TickerOverview[];
 }) {
   const latestMention = rows.reduce<string | null>((latest, row) => {
     if (!latest || row.lastMentionedAt > latest) return row.lastMentionedAt;
@@ -47,15 +49,16 @@ export function TickerOverviewPage({
 
   return (
     <section className="overview-page">
-      <TickerProofHero
+      <header className="brief-intro explore-intro"><p className="brief-kicker">직접 찾아보고 싶다면</p><h1>궁금한 종목을<br />같은 기준으로 비교해요.</h1><p className="brief-subtitle">공개 의견과 최근 변화, 과거 결과를 함께 살펴볼 수 있어요.</p><DataFreshness asOf={latestMention} /></header>
+      <details className="brief-performance"><summary>과거 신호의 실제 결과 보기</summary><TickerProofHero
         analystCount={analysts.length}
         latestMention={latestMention}
         overview={proofOverview ?? buildProofOverview(rows)}
         totalCount={totalCount}
-      />
+      /></details>
       <nav aria-label="종목 후보 보기" className="ticker-view-tabs">
         {[
-          ["verified", "검증된 후보", "/tickers"],
+          ["verified", "긍정 관점 후보", "/tickers?view=verified"],
           ["momentum", "관심 급증", "/tickers?view=momentum"],
           ["changes", "리스크·방향 전환", "/tickers?view=changes"],
           ["all", "전체 종목", "/tickers?view=all"],
@@ -73,8 +76,7 @@ export function TickerOverviewPage({
       <section className="universe-section">
         <header className="universe-section__heading">
           <div>
-            <p className="section-kicker">CURRENT PICKS</p>
-            <h2>이들이 지금 보는 종목</h2>
+            <h2>탐색 결과</h2>
           </div>
           <p>과거 적중 이력과 완료 표본을 함께 봅니다.</p>
         </header>

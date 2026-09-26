@@ -89,7 +89,7 @@ export function TickerControls({
           fill={query.watchlist ? "currentColor" : "none"}
           size={14}
         />
-        Watchlist
+        관심 종목만
       </button>
 
       <details className="advanced-filters">

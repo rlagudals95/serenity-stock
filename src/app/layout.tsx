@@ -2,10 +2,12 @@ import { headers } from "next/headers";
 import type { Metadata } from "next";
 
 import { AppShell } from "@/components/app-shell";
+import { resolveSupabaseDataConfig } from "@/lib/supabase/config";
 
 import "./globals.css";
+import "./briefing.css";
 
-const title = "Public Investor Intelligence";
+const title = "Serenity · 나의 다음 투자 기회";
 const description =
   "성장주 분석가들의 공개 투자 관점과 원문을 비교하는 리서치 도구";
 
@@ -42,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <AppShell>{children}</AppShell>
+        <AppShell demo={resolveSupabaseDataConfig(process.env).mode === "fixture"}>{children}</AppShell>
       </body>
     </html>
   );

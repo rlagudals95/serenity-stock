@@ -17,6 +17,7 @@ import { SignalPerformanceCompact } from "./signal-performance";
 import { proofDisplay } from "./proof-model";
 import type { ChangeType, TickerOverview } from "./types";
 import { WatchlistButton } from "./watchlist-button";
+import { opinionSnapshot } from "./briefing-model";
 
 const changeIcons = {
   first_mention: Sparkles,
@@ -55,7 +56,7 @@ export function TickerRow({ row }: { row: TickerOverview }) {
   return (
     <tr className="ticker-row candidate-row">
       <td className="watchlist-column">
-        <WatchlistButton initialActive={row.watchlisted} ticker={row.ticker} />
+        <WatchlistButton initialActive={row.watchlisted} ticker={row.ticker} snapshot={opinionSnapshot(row)} />
       </td>
       <th className="ticker-column" scope="row">
         <Link

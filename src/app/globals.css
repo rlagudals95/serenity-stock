@@ -3778,7 +3778,7 @@ a {
   margin-bottom: 9px;
 }
 
-.ticker-proof-hero__intro h1 {
+.ticker-proof-hero__intro h2 {
   max-width: 860px;
   margin: 0;
   font-size: clamp(2rem, 3.5vw, 3.25rem);
@@ -4287,7 +4287,7 @@ a.candidate-change__claim:hover {
     padding-bottom: 16px;
   }
 
-  .ticker-proof-hero__intro h1 {
+  .ticker-proof-hero__intro h2 {
     max-width: none;
     font-size: 1.875rem;
     word-break: keep-all;
