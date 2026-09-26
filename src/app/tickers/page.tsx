@@ -10,8 +10,8 @@ import {
   getAnalystProfiles,
   getTickerProofOverview,
   getTickerOverviewRows,
-  getTickerDetail,
-} from "@/features/tickers/repository";
+  getTickerBriefingResearch,
+} from "@/features/tickers/cached-repository";
 import { BriefingHome } from "@/features/tickers/briefing-home";
 import { buildTickerBrief } from "@/features/tickers/briefing-model";
 import { selectBriefingCandidates } from "@/features/tickers/briefing-selection";
@@ -39,7 +39,7 @@ export default async function TickersPage({
   const query = parseTickerQuery(params);
   const [allRows, analysts, cookieStore] = await Promise.all([
     getTickerOverviewRows(),
-    getAnalystProfiles(),
+    params.size === 0 ? Promise.resolve([]) : getAnalystProfiles(),
     cookies(),
   ]);
   const rowsWithPreferences = applyWatchlistOverrides(
@@ -48,17 +48,21 @@ export default async function TickersPage({
   );
   if (params.size === 0) {
     const picks = selectBriefingCandidates(rowsWithPreferences);
-    const details = await Promise.allSettled(picks.map(({ row }) => getTickerDetail(row.ticker)));
+    const research = await getTickerBriefingResearch(picks.map(({ row }) => row.ticker))
+      .catch((error: unknown) => {
+        console.error("Briefing evidence unavailable", error);
+        return {} as Awaited<ReturnType<typeof getTickerBriefingResearch>>;
+      });
     return <BriefingHome
-      candidates={picks.map(({ row, recommendation }, i) => ({
-        ...buildTickerBrief(row, details[i].status === "fulfilled" ? details[i].value : undefined),
+      candidates={picks.map(({ row, recommendation }) => ({
+        ...buildTickerBrief(row, research[row.ticker]),
         expectation: recommendation.evidence,
         recommendation,
       }))}
       watched={rowsWithPreferences.filter(row => row.watchlisted && hasPublicTickerIdentity(row)).map(row => buildTickerBrief(row))}
     />;
   }
-  const proofOverview = await getTickerProofOverview(rowsWithPreferences);
+  const proofOverview = await getTickerProofOverview();
   const filteredRows = applyTickerQuery(rowsWithPreferences, query);
   const pagination = paginateTickerRows(filteredRows, query.page, 30);
   const publicCount = rowsWithPreferences.filter(hasPublicTickerIdentity).length;

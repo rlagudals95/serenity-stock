@@ -7,7 +7,7 @@ import { OpinionsTab } from "@/features/tickers/detail/opinions-tab";
 import { OverviewTab } from "@/features/tickers/detail/overview-tab";
 import { ResearchTab } from "@/features/tickers/detail/research-tab";
 import { TickerHeader } from "@/features/tickers/detail/ticker-header";
-import { getTickerDetail } from "@/features/tickers/repository";
+import { getTickerDetail } from "@/features/tickers/cached-repository";
 import { DecisionSummary } from "@/features/tickers/detail/decision-summary";
 import { SignalPerformanceHero } from "@/features/tickers/signal-performance";
 import { applyWatchlistOverrides, parseWatchlistOverrides, WATCHLIST_COOKIE } from "@/features/tickers/watchlist-preferences";

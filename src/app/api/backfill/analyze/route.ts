@@ -1,4 +1,5 @@
-import { revalidatePath } from "next/cache";
+import { TICKER_DATA_CACHE_TAG } from "@/features/tickers/cache-policy";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPipelineConfig } from "@/lib/pipeline/config";
@@ -24,7 +25,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await analyzeHeldPostsBatch(getPipelineConfig());
+    revalidateTag(TICKER_DATA_CACHE_TAG, { expire: 0 });
     revalidatePath("/tickers", "layout");
+    revalidatePath("/watchlist");
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

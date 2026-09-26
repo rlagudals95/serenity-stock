@@ -61,11 +61,11 @@ export function opinionSnapshot(row: TickerOverview): OpinionSnapshot {
   };
 }
 
-export function buildTickerBrief(row: TickerOverview, detail?: TickerDetail): TickerBrief {
+export function buildTickerBrief(row: TickerOverview, detail?: Pick<TickerDetail, "risks" | "catalysts"> & Partial<Pick<TickerDetail, "claims">>): TickerBrief {
   const analysts = [...(row.analysts ?? [])].sort((a, b) => b.lastMentionedAt.localeCompare(a.lastMentionedAt));
   const risk = detail?.risks[0];
   const catalyst = detail?.catalysts[0];
-  const claim = detail?.claims.find(c => c.stance === "bullish");
+  const claim = detail?.claims?.find(c => c.stance === "bullish");
   return {
     ticker: row.ticker, companyName: row.companyName, watchlisted: row.watchlisted,
     asOf: row.lastMentionedAt,
