@@ -21,14 +21,14 @@ describe("WatchlistButton", () => {
       .mockResolvedValue(new Response(null, { status: 204 }));
 
     render(<WatchlistButton initialActive={false} ticker="COHR" />);
-    fireEvent.click(screen.getByRole("button", { name: "COHR Watchlist 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "COHR 관심 종목 추가" }));
 
-    expect(screen.getByRole("button", { name: "COHR Watchlist 제거" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "COHR 관심 종목 제거" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText("Watchlist 저장됨")).toBeInTheDocument();
+    expect(await screen.findByText("관심 종목에 저장했어요.")).toBeInTheDocument();
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -38,10 +38,10 @@ describe("WatchlistButton", () => {
     );
 
     render(<WatchlistButton initialActive={false} ticker="COHR" />);
-    fireEvent.click(screen.getByRole("button", { name: "COHR Watchlist 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "COHR 관심 종목 추가" }));
 
-    expect(await screen.findByText("Watchlist 저장 실패")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "COHR Watchlist 추가" })).toHaveAttribute(
+    expect(await screen.findByText("저장하지 못했어요. 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "COHR 관심 종목 추가" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );

@@ -57,7 +57,7 @@ function ResearchList({
   );
 }
 
-export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
+export function OverviewTab({ ticker, showAnalysts = true }: { ticker: TickerDetail; showAnalysts?: boolean }) {
   const directional = ticker.positiveCount + ticker.negativeCount;
   const comparisonLabel =
     ticker.analystComparison === "agreement"
@@ -70,7 +70,7 @@ export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
 
   return (
     <div className="detail-overview-stack">
-      <section className="analyst-comparison-section">
+      {showAnalysts ? <section className="analyst-comparison-section">
         <header className="section-heading-row">
           <div>
             <p className="section-kicker">SOURCE COMPARISON</p>
@@ -122,7 +122,7 @@ export function OverviewTab({ ticker }: { ticker: TickerDetail }) {
             </article>
           ))}
         </div>
-      </section>
+      </section> : null}
 
       <div className="detail-overview-grid">
         <div className="detail-overview-main">

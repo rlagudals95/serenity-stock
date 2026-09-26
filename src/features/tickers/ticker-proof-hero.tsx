@@ -30,11 +30,11 @@ export function TickerProofHero({
             ? "20거래일 판정 완료 · 공개 원문 기반"
             : "공개 의견 이후 주가 추적 중"}
         </p>
-        <h1>
+        <h2>
           {completed
             ? "주식 인플루언서가 고르고, 실제로 오른 종목"
             : "주식 인플루언서 픽, 실제 결과를 추적합니다"}
-        </h1>
+        </h2>
       </div>
 
       {overview.cases.length > 0 ? (

@@ -33,7 +33,7 @@ const row: TickerOverview = {
 };
 
 describe("TickerOverviewPage", () => {
-  it("puts verified candidates first and keeps source context secondary", () => {
+  it("keeps comparison tools and source context available in exploration", () => {
     render(
       <TickerOverviewPage
         query={defaultTickerQuery}
@@ -44,12 +44,12 @@ describe("TickerOverviewPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "주식 인플루언서 픽, 실제 결과를 추적합니다",
+        name: /궁금한 종목을\s*같은 기준으로 비교해요/,
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "검증된 후보" }),
-    ).toHaveAttribute("href", "/tickers");
+      screen.getByRole("link", { name: "긍정 관점 후보" }),
+    ).toHaveAttribute("href", "/tickers?view=verified");
     expect(
       screen.getByRole("link", { name: "관심 급증" }),
     ).toHaveAttribute("href", "/tickers?view=momentum");
@@ -66,7 +66,7 @@ describe("TickerOverviewPage", () => {
       screen.queryByText("검토 필요"),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "이들이 지금 보는 종목" }),
+      screen.getByRole("heading", { name: "탐색 결과" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText("과거 적중 이력과 완료 표본을 함께 봅니다."),
@@ -124,7 +124,7 @@ describe("TickerOverviewPage", () => {
     expect(screen.getByText(/유료 구독.*이해상충/)).toBeInTheDocument();
     expect(screen.getByText(/Shay 본인이나 관련 회사와 제휴/)).toBeInTheDocument();
     expect(screen.getByText(/감사를 받은 운용 성과가 아닙니다/)).toBeInTheDocument();
-    expect(screen.getByText(/2026.*기준/)).toBeInTheDocument();
+    expect(screen.getAllByText(/2026.*기준/)[0]).toBeInTheDocument();
     expect(screen.queryByText(/17:02 KST/)).not.toBeInTheDocument();
   });
 

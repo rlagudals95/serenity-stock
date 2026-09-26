@@ -78,8 +78,8 @@ export function TickerTable({
     return (
       <div className="table-empty">
         <p>조건에 맞는 종목이 없습니다.</p>
-        <Link className="text-button" href="/tickers">
-          검증된 후보로 돌아가기
+        <Link className="text-button" href="/tickers?view=all">
+          전체 종목으로 돌아가기
         </Link>
       </div>
     );

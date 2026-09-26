@@ -3,15 +3,20 @@
 import { Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { OpinionSnapshot } from "./briefing-model";
+import { markReviewed, updateResearch } from "./research-state";
+import { trackProductEvent } from "./product-events";
 
 export function WatchlistButton({
   initialActive,
   ticker,
   withLabel = false,
+  snapshot,
 }: {
   initialActive: boolean;
   ticker: string;
   withLabel?: boolean;
+  snapshot?: OpinionSnapshot;
 }) {
   const router = useRouter();
   const [active, setActive] = useState(initialActive);
@@ -31,11 +36,19 @@ export function WatchlistButton({
         body: JSON.stringify({ ticker, active: nextActive }),
       });
       if (!response.ok) throw new Error("watchlist save failed");
-      setStatus("Watchlist 저장됨");
+      let message = nextActive ? "관심 종목에 저장했어요." : "관심 종목에서 제외했어요.";
+      try {
+        if (nextActive && snapshot) markReviewed(ticker, snapshot);
+        if (!nextActive) updateResearch(ticker, { baseline: undefined, reviewedAt: null });
+      } catch {
+        message += " 확인 기록은 저장하지 못했어요. 종목 상세에서 다시 확인해 주세요.";
+      }
+      setStatus(message);
+      if (nextActive) trackProductEvent("watchlist_saved", ticker, "watchlist-button");
       router.refresh();
     } catch {
       setActive(!nextActive);
-      setStatus("Watchlist 저장 실패");
+      setStatus("저장하지 못했어요. 다시 시도해 주세요.");
     } finally {
       setPending(false);
     }
@@ -44,7 +57,7 @@ export function WatchlistButton({
   return (
     <span className="watchlist-control">
       <button
-        aria-label={`${ticker} Watchlist ${active ? "제거" : "추가"}`}
+        aria-label={`${ticker} 관심 종목 ${active ? "제거" : "추가"}`}
         aria-pressed={active}
         className={`watchlist-button ${active ? "is-active" : ""} ${
           withLabel ? "watchlist-button--labeled" : ""
@@ -54,7 +67,7 @@ export function WatchlistButton({
           event.stopPropagation();
           void toggle();
         }}
-        title={active ? "Watchlist에서 제거" : "Watchlist에 추가"}
+        title={active ? "관심 종목에서 제거" : "관심 종목에 추가"}
         type="button"
       >
         <Star
@@ -62,10 +75,10 @@ export function WatchlistButton({
           fill={active ? "currentColor" : "none"}
           size={15}
         />
-        {withLabel ? <span>Watchlist</span> : null}
+        {withLabel ? <span>{pending ? "저장 중…" : active ? "관심 등록됨" : "관심 종목에 추가"}</span> : null}
       </button>
       {status ? (
-        <span aria-live="polite" className="sr-only">
+        <span aria-live="polite" className={withLabel ? "watchlist-feedback" : "sr-only"}>
           {status}
         </span>
       ) : null}
