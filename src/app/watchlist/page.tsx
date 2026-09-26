@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { BriefingHome } from "@/features/tickers/briefing-home";
 import { buildTickerBrief } from "@/features/tickers/briefing-model";
-import { getTickerOverviewRows } from "@/features/tickers/repository";
+import { getTickerOverviewRows } from "@/features/tickers/cached-repository";
 import { hasPublicTickerIdentity } from "@/features/tickers/query";
 import { applyWatchlistOverrides, parseWatchlistOverrides, WATCHLIST_COOKIE } from "@/features/tickers/watchlist-preferences";
 

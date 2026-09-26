@@ -608,7 +608,7 @@ function mapOpinion(row: TimelineViewRow): Opinion {
   };
 }
 
-function analystIdentity(row: TimelineViewRow) {
+function analystIdentity(row: Pick<TimelineViewRow, "analyst_key" | "analyst_name" | "x_username">) {
   const username = row.x_username ?? "unknown";
   return {
     key: row.analyst_key ?? username.toLocaleLowerCase(),
@@ -618,7 +618,7 @@ function analystIdentity(row: TimelineViewRow) {
 }
 
 function uniqueResearchItems(
-  rows: TimelineViewRow[],
+  rows: BriefingResearchRow[],
   field: "risks_mentioned" | "catalysts_mentioned",
 ): ResearchItem[] {
   const seen = new Set<string>();
@@ -862,4 +862,53 @@ export async function getTickerDetail(
     signal,
     prices,
   );
+}
+
+
+export type TickerBriefingResearch = Pick<TickerDetail, "risks" | "catalysts">;
+type BriefingResearchRow = Pick<TimelineViewRow,
+  "post_ticker_analysis_id" | "posted_at" | "source_url" | "analyst_key" |
+  "analyst_name" | "x_username" | "risks_mentioned" | "catalysts_mentioned"
+> & { ticker?: string };
+
+const briefingResearchColumns = "ticker,post_ticker_analysis_id,posted_at,source_url,analyst_key,analyst_name,x_username,risks_mentioned,catalysts_mentioned";
+
+export async function getTickerBriefingResearch(
+  tickers: string[],
+): Promise<Record<string, TickerBriefingResearch>> {
+  const normalized = [...new Set(tickers.map(ticker => ticker.trim().toUpperCase()).filter(Boolean))].sort();
+  if (normalized.length === 0) return {};
+  if (normalized.length > 10) throw new Error("At most 10 briefing tickers are supported");
+  if (!(await hasSupabaseConfig())) {
+    return Object.fromEntries(normalized.map(ticker => {
+      const detail = getFixtureTickerDetail(ticker);
+      return [ticker, { risks: detail?.risks ?? [], catalysts: detail?.catalysts ?? [] }];
+    }));
+  }
+  const client = await supabaseClient();
+  const result = await client.rpc("get_ticker_briefing_research", { p_tickers: normalized });
+  let rows: BriefingResearchRow[];
+  if (result.error?.code === "PGRST202" || result.error?.code === "42883") {
+    // Safe rolling deployment: preserve card evidence before the migration lands.
+    const results = await Promise.all(normalized.map(ticker => client
+      .from("ticker_opinion_timeline_v2")
+      .select(briefingResearchColumns)
+      .eq("ticker", ticker)
+      .order("posted_at", { ascending: false })
+      .order("post_ticker_analysis_id", { ascending: false })
+      .limit(100)));
+    const error = results.find(item => item.error)?.error;
+    if (error) throw new Error(`Briefing evidence query failed: ${error.message}`);
+    rows = results.flatMap(item => item.data ?? []) as BriefingResearchRow[];
+  } else {
+    if (result.error) throw new Error(`Briefing evidence query failed: ${result.error.message}`);
+    rows = (result.data ?? []) as BriefingResearchRow[];
+  }
+  return Object.fromEntries(normalized.map(ticker => {
+    const timeline = rows.filter(row => row.ticker === ticker);
+    return [ticker, {
+      risks: uniqueResearchItems(timeline, "risks_mentioned"),
+      catalysts: uniqueResearchItems(timeline, "catalysts_mentioned"),
+    }];
+  }));
 }
