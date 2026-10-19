@@ -295,6 +295,9 @@ function isProofFoundationUnavailable(error: {
   return (
     error.code === "42P01" ||
     error.code === "PGRST205" ||
+    // Historical proof is supplementary; a slow aggregation must not take down
+    // the ticker landing page when Postgres cancels it at statement_timeout.
+    error.code === "57014" ||
     error.message?.includes("ticker_candidate_proof") ||
     error.message?.includes("ticker_proof_rollup") ||
     error.message?.includes("analyst_bullish_episode_outcomes")
